@@ -1,0 +1,15 @@
+.git
+__pycache__
+*.pyc
+*.py
+*.log
+*.db
+.vscode/
+.idea/
+data/
+*.html
+bookmarks_2026_5_20.html
+batch_translate.py
+shuqian.py
+translate_batch.log
+vendor/
