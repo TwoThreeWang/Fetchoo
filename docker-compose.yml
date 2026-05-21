@@ -1,7 +1,7 @@
 services:
-  web-fetcher:
+  fetchoo:
     build: .
-    container_name: go-web-fetcher
+    container_name: fetchoo
     ports:
       - "5000:5000"
     volumes:
