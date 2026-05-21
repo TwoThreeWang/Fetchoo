@@ -1,9 +1,6 @@
-# ============ 构建阶段 ============
-# syntax 声明启用 BuildKit 缓存挂载
 # syntax=docker/dockerfile:1
+# ============ 构建阶段 ============
 FROM golang:1.23-alpine AS builder
-
-RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
