@@ -41,6 +41,6 @@ COPY --from=builder /app/server .
 # 创建数据目录
 RUN mkdir -p /app/data /app/logs
 
-EXPOSE 8000
+EXPOSE 5000
 
 CMD ["./server"]

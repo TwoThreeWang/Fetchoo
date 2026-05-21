@@ -33,8 +33,8 @@ echo "  ✓ 服务已启动"
 echo ""
 echo "[4/4] 健康检查..."
 sleep 3
-if curl -sf http://localhost:8000/ > /dev/null 2>&1; then
-    echo "  ✓ Fetchoo 已就绪: http://localhost:8000"
+if curl -sf http://localhost:5000/ > /dev/null 2>&1; then
+    echo "  ✓ Fetchoo 已就绪: http://localhost:5000"
 else
     echo "  ⚠ 服务可能尚未完全启动，请稍后检查"
 fi

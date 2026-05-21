@@ -68,10 +68,10 @@ cd go_web_fetcher
 go mod tidy
 
 # 运行（需要系统安装 Chromium 或允许 chromedp 自动下载）
-go run ./cmd/server -port=8000
+go run ./cmd/server -port=5000
 
 # 命令行参数
--port=8000                  服务端口（默认 8000）
+-port=5000                  服务端口（默认 5000）
 -cache-db=/app/data/fetch_cache.db    缓存数据库路径
 -browser                    强制启用浏览器模式
 -no-browser                 禁用浏览器模式
@@ -92,7 +92,7 @@ docker compose up -d --build
 docker compose logs -f
 
 # 访问服务
-curl "http://localhost:8000/fetch?url=https://example.com"
+curl "http://localhost:5000/fetch?url=https://example.com"
 ```
 
 ---
@@ -101,17 +101,17 @@ curl "http://localhost:8000/fetch?url=https://example.com"
 
 ### 首页
 
-访问 `http://localhost:8000/` 查看落地页。
+访问 `http://localhost:5000/` 查看落地页。
 
 ### GET /fetch
 
 获取网页内容，返回 JSON 结构化数据。
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| url | string | 必填 | 目标网址 |
-| stealth | bool | false | 强制使用浏览器模式 |
-| no_cache | bool | false | 跳过缓存直接抓取 |
+| 参数     | 类型   | 默认值 | 说明               |
+| -------- | ------ | ------ | ------------------ |
+| url      | string | 必填   | 目标网址           |
+| stealth  | bool   | false  | 强制使用浏览器模式 |
+| no_cache | bool   | false  | 跳过缓存直接抓取   |
 
 **响应格式:**
 
@@ -159,18 +159,18 @@ curl "http://localhost:8000/fetch?url=https://example.com"
 
 ## 抓取模式说明
 
-| mode | 含义 |
-|------|------|
-| `cached` | 命中缓存（内存或 SQLite） |
-| `http` | HTTP 直接抓取成功 |
-| `stealth` | Chromium 浏览器抓取 |
-| `webpagesnap` | WebPageSnap 服务抓取 |
-| `markdown-new` | markdown.new 服务抓取 |
-| `defuddle` | Defuddle.md 服务兜底 |
-| `jina` | Jina Reader 最终兜底 |
-| `fxtwitter` | FxTwitter API（Twitter/X 专用） |
-| `invalid` | URL 校验失败 |
-| `failed` | 所有方式均失败 |
+| mode           | 含义                            |
+| -------------- | ------------------------------- |
+| `cached`       | 命中缓存（内存或 SQLite）       |
+| `http`         | HTTP 直接抓取成功               |
+| `stealth`      | Chromium 浏览器抓取             |
+| `webpagesnap`  | WebPageSnap 服务抓取            |
+| `markdown-new` | markdown.new 服务抓取           |
+| `defuddle`     | Defuddle.md 服务兜底            |
+| `jina`         | Jina Reader 最终兜底            |
+| `fxtwitter`    | FxTwitter API（Twitter/X 专用） |
+| `invalid`      | URL 校验失败                    |
+| `failed`       | 所有方式均失败                  |
 
 ---
 
@@ -226,13 +226,13 @@ FxTwitter → Browser → WebPageSnap → markdown.new → Defuddle → Jina
 
 ## 依赖服务
 
-| 服务 | 用途 | 免费额度 |
-|------|------|----------|
-| [WebPageSnap](https://webpagesnap.com) | 网页快照抓取 | - |
-| [markdown.new](https://markdown.new) | URL→Markdown 转换 | 500 次/天/IP |
-| [Defuddle](https://defuddle.md) | 内容清洗 | - |
-| [Jina Reader](https://r.jina.ai) | 通用内容提取 | 免费 |
-| [FxTwitter](https://api.fxtwitter.com) | Twitter/X 专用 | 免费 |
+| 服务                                   | 用途              | 免费额度     |
+| -------------------------------------- | ----------------- | ------------ |
+| [WebPageSnap](https://webpagesnap.com) | 网页快照抓取      | -            |
+| [markdown.new](https://markdown.new)   | URL→Markdown 转换 | 500 次/天/IP |
+| [Defuddle](https://defuddle.md)        | 内容清洗          | -            |
+| [Jina Reader](https://r.jina.ai)       | 通用内容提取      | 免费         |
+| [FxTwitter](https://api.fxtwitter.com) | Twitter/X 专用    | 免费         |
 
 ---
 

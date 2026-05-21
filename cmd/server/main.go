@@ -24,7 +24,7 @@ func main() {
 		proxy          string
 	)
 
-	flag.StringVar(&port, "port", "8000", "服务端口")
+	flag.StringVar(&port, "port", "5000", "服务端口")
 	flag.StringVar(&cacheDB, "cache-db", "/app/data/fetch_cache.db", "缓存数据库路径")
 	flag.BoolVar(&useBrowser, "browser", false, "强制启用浏览器模式")
 	flag.BoolVar(&disableBrowser, "no-browser", false, "禁用浏览器模式")
