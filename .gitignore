@@ -1,6 +1,4 @@
 # Binary
-server.exe
-server
 *.exe
 *.exe~
 *.dll
