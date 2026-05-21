@@ -70,14 +70,14 @@ const landingPageHTML = `<!DOCTYPE html>
 	<meta property="og:title" content="Fetchoo - Fetch the web, cleanly.">
 	<meta property="og:description" content="Web content, ready for AI. 多源降级抓取，JSON 结构化输出，智能缓存。">
 	<meta property="og:type" content="website">
-	<meta property="og:url" content="https://fetchoo.dev">
-	<meta property="og:image" content="https://fetchoo.dev/og-image.png">
+	<meta property="og:url" content="https://fetchoo.c2v2.com">
+	<meta property="og:image" content="https://fetchoo.c2v2.com/og-image.png">
 	
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary_large_image">
 	<meta name="twitter:title" content="Fetchoo - Fetch the web, cleanly.">
 	<meta name="twitter:description" content="Web content, ready for AI. 多源降级抓取，JSON 结构化输出，智能缓存。">
-	<meta name="twitter:image" content="https://fetchoo.dev/og-image.png">
+	<meta name="twitter:image" content="https://fetchoo.c2v2.com/og-image.png">
 	
 	<!-- Favicon & Theme -->
 	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦝</text></svg>">
@@ -234,7 +234,7 @@ const landingPageHTML = `<!DOCTYPE html>
 				<div class="p-4 font-mono text-sm overflow-x-auto">
 					<div class="text-text-secondary mb-2">// Request</div>
 					<div class="text-green-400">curl</div>
-					<div class="text-text-primary ml-4">"http://localhost:8000/fetch?url=https://example.com"</div>
+					<div class="text-text-primary ml-4">"https://fetchoo.c2v2.com/fetch?url=https://example.com"</div>
 					
 					<div class="text-text-secondary mt-4 mb-2">// Response</div>
 					<pre class="text-text-primary">{
