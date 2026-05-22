@@ -53,7 +53,12 @@ func main() {
 		browserFlag = &b
 	}
 
-	f, err := fetcher.NewWebContentFetcher(cacheDB, browserFlag, proxy)
+	braveAPIKey := os.Getenv("BRAVE_API_KEY")
+	if braveAPIKey != "" {
+		log.Println("[main] Brave Search API Key 已配置")
+	}
+
+	f, err := fetcher.NewWebContentFetcher(cacheDB, browserFlag, proxy, braveAPIKey)
 	if err != nil {
 		log.Fatalf("初始化失败: %v", err)
 	}

@@ -40,18 +40,19 @@ type WebContentFetcher struct {
 	memCacheMu     sync.Mutex // 保护 memCacheCount 和 memCacheKeys
 	stopClean      chan struct{} // 停止清理 goroutine
 
-	httpFetcher  *HTTPFetcher
-	defuddle     *DefuddleReader
-	jina         *JinaReader
-	webpagesnap  *WebPageSnapFetcher
-	markdownnew  *MarkdownNewFetcher
-	fxtwitter    *FxTwitterFetcher
-	browser      *StealthBrowser
-	useBrowser   bool
+	httpFetcher   *HTTPFetcher
+	defuddle      *DefuddleReader
+	jina          *JinaReader
+	webpagesnap   *WebPageSnapFetcher
+	markdownnew   *MarkdownNewFetcher
+	fxtwitter     *FxTwitterFetcher
+	bravesearch   *BraveSearchFetcher
+	browser       *StealthBrowser
+	useBrowser    bool
 }
 
 // NewWebContentFetcher 创建 Fetcher 实例
-func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string) (*WebContentFetcher, error) {
+func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveAPIKey string) (*WebContentFetcher, error) {
 	hm := headers.NewHeadersManager()
 	rl := ratelimit.NewRateLimiter(5.0)
 	c, err := cache.NewSQLiteCache(cacheDB, 7)
@@ -71,6 +72,7 @@ func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string) (*WebC
 		webpagesnap:  NewWebPageSnapFetcher(hm, rl),
 		markdownnew:  NewMarkdownNewFetcher(hm, rl),
 		fxtwitter:    NewFxTwitterFetcher(hm, rl),
+		bravesearch:  NewBraveSearchFetcher(hm, rl, braveAPIKey),
 	}
 
 	// 决定是否启用浏览器
@@ -283,12 +285,27 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 		log.Printf("[fetcher] Defuddle 失败，降级到 Jina: %v", defErr)
 	}
 
-	// 6. Jina 兜底
+	// 6. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr != nil {
-		return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: http=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", httpErr, snapErr, mnErr, defErr, jinaErr)
+	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
-	return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
+	if jinaErr != nil {
+		log.Printf("[fetcher] Jina 失败，降级到 Brave Search: %v", jinaErr)
+	} else {
+		log.Printf("[fetcher] Jina 内容过少(%d字符)，降级到 Brave Search", len(jinaContent))
+	}
+
+	// 7. Brave Search 兜底（用目标 URL 作为搜索词）
+	if wf.bravesearch != nil {
+		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
+		if brErr == nil {
+			return brContent, "brave-search", brSel, brMeta, nil
+		}
+		log.Printf("[fetcher] Brave Search 失败: %v", brErr)
+	}
+
+	return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: http=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", httpErr, snapErr, mnErr, defErr, jinaErr)
 }
 
 // fetchStealthMode 浏览器优先，失败再降级
@@ -327,15 +344,28 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		return defContent, "defuddle", defSel, metadata, nil
 	}
 
-	// 5. Jina 兜底
+	// 5. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr != nil {
-		return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: browser=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", browserErr, snapErr, mnErr, defErr, jinaErr)
+	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
-	return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
+	if jinaErr != nil {
+		log.Printf("[fetcher] Jina 失败，降级到 Brave Search: %v", jinaErr)
+	}
+
+	// 6. Brave Search 兜底
+	if wf.bravesearch != nil {
+		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
+		if brErr == nil {
+			return brContent, "brave-search", brSel, brMeta, nil
+		}
+		log.Printf("[fetcher] Brave Search 失败: %v", brErr)
+	}
+
+	return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: browser=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", browserErr, snapErr, mnErr, defErr, jinaErr)
 }
 
-// fetchTwitterMode FxTwitter → Browser → WebPageSnap → markdown.new → Defuddle → Jina
+// fetchTwitterMode FxTwitter → Browser → WebPageSnap → markdown.new → Defuddle → Jina → Brave Search
 func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (string, string, string, types.WebMetadata, error) {
 	// 1. FxTwitter（Twitter 专用 API，最快最准）
 	fxContent, fxSel, fxMeta, fxErr := wf.fxtwitter.Fetch(targetURL, maxChars)
@@ -390,12 +420,25 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] Defuddle 失败，降级到 Jina: %v", defErr)
 	}
 
-	// 6. Jina 兜底
+	// 6. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr != nil {
-		return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: fxtwitter=%v, browser=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", fxErr, "", snapErr, mnErr, defErr, jinaErr)
+	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
-	return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
+	if jinaErr != nil {
+		log.Printf("[fetcher] Jina 失败，降级到 Brave Search: %v", jinaErr)
+	}
+
+	// 7. Brave Search 兜底
+	if wf.bravesearch != nil {
+		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
+		if brErr == nil {
+			return brContent, "brave-search", brSel, brMeta, nil
+		}
+		log.Printf("[fetcher] Brave Search 失败: %v", brErr)
+	}
+
+	return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: fxtwitter=%v, browser=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", fxErr, "", snapErr, mnErr, defErr, jinaErr)
 }
 
 // buildMetadataFromFrontmatter 从 Defuddle/Jina 返回的 frontmatter map 构建 WebMetadata
