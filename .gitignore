@@ -38,3 +38,4 @@ logs/
 # Temp
 tmp/
 _temp/
+.env

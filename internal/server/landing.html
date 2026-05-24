@@ -3,517 +3,1327 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fetchoo - Fetch the web, cleanly.</title>
-    <meta
-      name="description"
-      content="Fetchoo 将任意网页转换为结构化 JSON，为 AI 应用提供干净、可用的内容。支持串行降级抓取、多源聚合和智能缓存。"
-    />
+    <title>Fetchoo — Fetch the web, cleanly.</title>
+    <meta name="description" content="Web content, ready for AI. 9 级串行降级抓取，JSON 结构化输出，智能缓存。" />
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="Fetchoo - Fetch the web, cleanly." />
-    <meta
-      property="og:description"
-      content="Web content, ready for AI. 多源降级抓取，JSON 结构化输出，智能缓存。"
-    />
+    <meta property="og:title" content="Fetchoo — Fetch the web, cleanly." />
+    <meta property="og:description" content="Web content, ready for AI." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://fetchoo.c2v2.com" />
-    <meta property="og:image" content="https://fetchoo.c2v2.com/og-image.png" />
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Fetchoo - Fetch the web, cleanly." />
-    <meta
-      name="twitter:description"
-      content="Web content, ready for AI. 多源降级抓取，JSON 结构化输出，智能缓存。"
-    />
-    <meta
-      name="twitter:image"
-      content="https://fetchoo.c2v2.com/og-image.png"
-    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦝</text></svg>" />
+    <meta name="theme-color" content="#0a0a0a" />
 
-    <!-- Favicon & Theme -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦝</text></svg>"
-    />
-    <meta name="theme-color" content="#0B0F19" />
-
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 
-    <!-- Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              bg: "#0B0F19",
-              surface: "#111827",
-              accent: "#D97706",
-              "text-primary": "#F3F4F6",
-              "text-secondary": "#9CA3AF",
-              border: "#1F2937",
-            },
-            fontFamily: {
-              display: ["Space Grotesk", "sans-serif"],
-              body: ["Inter", "sans-serif"],
-              mono: ["JetBrains Mono", "monospace"],
-            },
-          },
-        },
-      };
-    </script>
-
-    <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Fetchoo",
-        "description": "Web content fetching service for AI applications",
-        "applicationCategory": "DeveloperApplication",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
-      }
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Fetchoo",
+      "description": "Web content fetching service for AI applications",
+      "applicationCategory": "DeveloperApplication",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
     </script>
 
     <style>
+      *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+      :root {
+        --bg: #0a0a0a;
+        --bg-raised: #141414;
+        --bg-inset: #0c0c0c;
+        --border: #222;
+        --border-subtle: #1a1a1a;
+        --amber: #d97706;
+        --amber-dim: #92400e;
+        --green: #22c55e;
+        --green-dim: #166534;
+        --red: #ef4444;
+        --text: #e5e5e5;
+        --text-dim: #737373;
+        --text-muted: #525252;
+        --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+        --font-sans: 'Inter', -apple-system, sans-serif;
+      }
+
+      html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
       body {
-        background: linear-gradient(180deg, #0b0f19 0%, #0f1623 100%);
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        line-height: 1.6;
         min-height: 100vh;
       }
-      .code-window {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        overflow: hidden;
+
+      ::selection { background: var(--amber); color: #000; }
+
+      .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+      /* === Hero === */
+      .hero {
+        padding: 72px 0 40px;
+        text-align: center;
       }
-      .code-header {
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
+
+      .hero-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+
+      .hero h1 {
+        font-family: var(--font-mono);
+        font-size: 2.5rem;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        color: #fff;
+        margin-bottom: 12px;
+      }
+
+      .hero .tagline {
+        font-size: 1.1rem;
+        color: var(--text-dim);
+        max-width: 520px;
+        margin: 0 auto 12px;
+      }
+
+      .hero .subline {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        max-width: 560px;
+        margin: 0 auto 40px;
+      }
+
+      /* === Input Bar === */
+      .input-bar {
+        display: flex;
+        gap: 8px;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .input-bar input {
+        flex: 1;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 8px;
         padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 0.875rem;
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .input-bar input::placeholder { color: var(--text-muted); }
+      .input-bar input:focus { border-color: var(--amber); }
+
+      .input-bar button {
+        background: var(--amber);
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 28px;
+        font-family: var(--font-mono);
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, transform 0.1s;
+      }
+
+      .input-bar button:hover { background: #b45309; }
+      .input-bar button:active { transform: scale(0.97); }
+      .input-bar button:disabled { background: var(--amber-dim); cursor: not-allowed; transform: none; }
+
+      /* === Section Titles === */
+      .section-label {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 8px;
+      }
+
+      .section-title {
+        font-family: var(--font-mono);
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 16px;
+      }
+
+      .section-desc {
+        font-size: 0.9rem;
+        color: var(--text-dim);
+        line-height: 1.65;
+        max-width: 640px;
+      }
+
+      /* === What Is Section === */
+      .what-section { padding: 48px 0 32px; }
+
+      .what-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 24px;
+      }
+
+      .what-card {
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 24px;
+      }
+
+      .what-card h4 {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--amber);
+        margin-bottom: 8px;
+      }
+
+      .what-card p {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        line-height: 1.55;
+      }
+
+      /* === How It Works === */
+      .how-section { padding: 40px 0; }
+
+      .how-flow {
+        margin-top: 24px;
+        position: relative;
+      }
+
+      .how-step {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 4px;
+        position: relative;
+      }
+
+      .how-step:last-child { margin-bottom: 0; }
+
+      .how-num {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--amber);
+        position: relative;
+        z-index: 1;
+      }
+
+      .how-step:not(:last-child) .how-num::after {
+        content: '';
+        position: absolute;
+        top: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 1px;
+        height: calc(100% + 4px);
+        background: var(--border);
+      }
+
+      .how-content {
+        padding: 4px 0 20px;
+      }
+
+      .how-content h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 4px;
+      }
+
+      .how-content p {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+
+      /* === Pipeline === */
+      .pipeline-section {
+        padding: 32px 0 16px;
+        display: none;
+      }
+
+      .pipeline-section.active { display: block; }
+
+      .pipeline-label {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 16px;
+      }
+
+      .pipeline {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        overflow-x: auto;
+        padding: 8px 0 20px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .pipeline::-webkit-scrollbar { height: 4px; }
+      .pipeline::-webkit-scrollbar-track { background: transparent; }
+      .pipeline::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+      .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 72px;
+        flex-shrink: 0;
+        position: relative;
+      }
+
+      .step-node {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--bg-raised);
+        border: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 1;
+      }
+
+      .step-name {
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        color: var(--text-muted);
+        margin-top: 8px;
+        text-align: center;
+        max-width: 72px;
+        line-height: 1.3;
+        transition: color 0.3s;
+      }
+
+      .step-time {
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: calc(50% + 22px);
+        width: calc(100% - 44px);
+        height: 2px;
+        background: var(--border);
+        transition: background 0.3s;
+      }
+
+      .step.running .step-node {
+        border-color: var(--amber);
+        color: var(--amber);
+        box-shadow: 0 0 12px rgba(217, 119, 6, 0.25);
+        animation: pulse-amber 1.2s ease-in-out infinite;
+      }
+
+      .step.running .step-name { color: var(--amber); }
+
+      @keyframes pulse-amber {
+        0%, 100% { box-shadow: 0 0 8px rgba(217, 119, 6, 0.2); }
+        50% { box-shadow: 0 0 18px rgba(217, 119, 6, 0.4); }
+      }
+
+      .step.success .step-node {
+        border-color: var(--green);
+        background: var(--green);
+        color: #000;
+        box-shadow: 0 0 16px rgba(34, 197, 94, 0.3);
+        animation: none;
+      }
+
+      .step.success .step-name { color: var(--green); }
+      .step.success .step-time { color: var(--green); opacity: 1; }
+      .step.success:not(:last-child)::after { background: var(--green); }
+
+      .step.fail .step-node {
+        border-color: var(--border-subtle);
+        background: var(--bg-inset);
+        color: var(--text-muted);
+        animation: none;
+      }
+
+      .step.fail .step-name { color: var(--text-muted); }
+      .step.fail .step-time { color: var(--text-muted); opacity: 1; }
+
+      .step.skip .step-node {
+        border-color: var(--border-subtle);
+        color: var(--text-muted);
+        opacity: 0.35;
+      }
+
+      .step.skip .step-name { opacity: 0.35; }
+
+      /* === Result === */
+      .result-section {
+        padding: 8px 0 32px;
+        display: none;
+      }
+
+      .result-section.active { display: block; }
+
+      .result-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .result-status {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
         display: flex;
         align-items: center;
         gap: 8px;
       }
-      .dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
+
+      .result-status.ok { color: var(--green); }
+      .result-status.err { color: var(--red); }
+
+      .result-meta {
+        display: flex;
+        gap: 20px;
       }
-      .dot-red {
-        background: #ff5f56;
+
+      .result-meta span {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-dim);
       }
-      .dot-yellow {
-        background: #ffbd2e;
+
+      .result-meta .val { color: var(--amber); }
+
+      /* Code Window */
+      .code-window {
+        background: var(--bg-inset);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
       }
-      .dot-green {
-        background: #27ca40;
+
+      .code-header {
+        background: var(--bg-raised);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
-      .glow {
-        position: absolute;
-        width: 600px;
-        height: 600px;
-        background: radial-gradient(
-          circle,
-          rgba(217, 119, 6, 0.08) 0%,
-          transparent 70%
-        );
-        pointer-events: none;
+
+      .code-dots { display: flex; gap: 6px; }
+
+      .code-dots span {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--border);
+      }
+
+      .code-dots span:nth-child(1) { background: #ff5f56; }
+      .code-dots span:nth-child(2) { background: #ffbd2e; }
+      .code-dots span:nth-child(3) { background: #27ca40; }
+
+      .code-tabs {
+        display: flex;
+        gap: 2px;
+        background: var(--bg-inset);
+        border-radius: 6px;
+        padding: 2px;
+      }
+
+      .code-tab {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        padding: 4px 12px;
+        border-radius: 4px;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .code-tab.active { background: var(--bg-raised); color: var(--text); }
+
+      .code-body {
+        padding: 16px;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 1.65;
+        overflow-x: auto;
+        max-height: 400px;
+        overflow-y: auto;
+        color: var(--text-dim);
+      }
+
+      .code-body::-webkit-scrollbar { width: 6px; }
+      .code-body::-webkit-scrollbar-track { background: transparent; }
+      .code-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+      .code-body pre { margin: 0; white-space: pre; font-family: inherit; font-size: inherit; }
+
+      .json-key { color: #7dd3fc; }
+      .json-str { color: #86efac; }
+      .json-num { color: #fbbf24; }
+      .json-bool { color: #c084fc; }
+      .json-null { color: var(--text-muted); }
+
+      /* === Divider === */
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border-subtle);
+        margin: 0;
+      }
+
+      /* === Features === */
+      .features { padding: 48px 0; }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--border-subtle);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 24px;
+      }
+
+      .feature-card {
+        background: var(--bg);
+        padding: 28px 24px;
+      }
+
+      .feature-card h3 {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 10px;
+      }
+
+      .feature-card p {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        line-height: 1.55;
+      }
+
+      .feature-card .highlight {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--amber);
+        margin-top: 12px;
+        display: block;
+      }
+
+      /* === Use Cases === */
+      .usecases { padding: 48px 0; }
+
+      .usecase-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .usecase-card {
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 24px;
+        transition: border-color 0.2s;
+      }
+
+      .usecase-card:hover { border-color: var(--amber); }
+
+      .usecase-card .uc-icon {
+        font-size: 1.2rem;
+        margin-bottom: 12px;
+        display: block;
+      }
+
+      .usecase-card h4 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 6px;
+      }
+
+      .usecase-card p {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+
+      .usecase-card .uc-example {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-top: 10px;
+        padding: 8px 12px;
+        background: var(--bg-inset);
+        border-radius: 4px;
+        border-left: 2px solid var(--amber-dim);
+      }
+
+      /* === Endpoint Cards === */
+      .endpoints { padding: 48px 0; }
+
+      .endpoint-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .endpoint-card {
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        transition: border-color 0.2s;
+      }
+
+      .endpoint-card:hover { border-color: var(--amber); }
+
+      .endpoint-method {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--amber);
+        background: rgba(217, 119, 6, 0.1);
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 8px;
+      }
+
+      .endpoint-path {
+        font-family: var(--font-mono);
+        font-size: 0.9rem;
+        color: #fff;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .endpoint-desc {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin-bottom: 10px;
+      }
+
+      .endpoint-params {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+
+      .endpoint-params .required { color: var(--amber); }
+
+      /* === Response Fields === */
+      .response-fields { padding: 48px 0; }
+
+      .field-table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+      }
+
+      .field-table th {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        text-align: left;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .field-table td {
+        font-size: 0.82rem;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        vertical-align: top;
+      }
+
+      .field-table tr:last-child td { border-bottom: none; }
+
+      .field-name {
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        color: var(--amber);
+      }
+
+      .field-type {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        background: var(--bg-raised);
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+
+      .field-desc {
+        color: var(--text-dim);
+        line-height: 1.5;
+      }
+
+      .field-note {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+        display: block;
+      }
+
+      /* === Open Source === */
+      .opensource { padding: 48px 0; }
+
+      .os-card {
+        background: var(--bg-raised);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 32px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        margin-top: 20px;
+      }
+
+      .os-icon { font-size: 2rem; flex-shrink: 0; }
+
+      .os-content h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #fff;
+        margin-bottom: 6px;
+      }
+
+      .os-content p {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+
+      .os-link {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--amber);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+
+      .os-link:hover { color: #f59e0b; }
+
+      /* === Footer === */
+      .site-footer {
+        padding: 32px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .footer-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .footer-brand {
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        color: var(--text-dim);
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 24px;
+      }
+
+      .footer-links a {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+
+      .footer-links a:hover { color: var(--text); }
+
+      /* === Responsive === */
+      @media (max-width: 768px) {
+        .hero { padding: 48px 0 32px; }
+        .hero h1 { font-size: 1.8rem; }
+        .hero .tagline { font-size: 0.95rem; }
+
+        .input-bar { flex-direction: column; }
+        .input-bar button { padding: 12px; }
+
+        .what-grid { grid-template-columns: 1fr; }
+        .features-grid { grid-template-columns: 1fr; }
+        .usecase-grid { grid-template-columns: 1fr; }
+        .endpoint-grid { grid-template-columns: 1fr; }
+
+        .result-meta { flex-wrap: wrap; gap: 12px; }
+
+        .pipeline { gap: 2px; }
+        .step { min-width: 56px; }
+        .step-node { width: 32px; height: 32px; font-size: 0.55rem; }
+        .step-name { font-size: 0.5rem; max-width: 56px; }
+
+        .os-card { flex-direction: column; text-align: center; }
       }
     </style>
   </head>
-  <body class="text-text-primary font-body antialiased">
-    <div class="glow top-0 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
 
-    <!-- Hero Section -->
-    <section class="relative px-6 py-20 lg:py-32">
-      <div class="max-w-5xl mx-auto text-center">
-        <div class="mb-6">
-          <span class="text-6xl lg:text-7xl">🦝</span>
+  <body>
+    <div class="container">
+      <!-- Hero -->
+      <section class="hero">
+        <span class="hero-icon">🦝</span>
+        <h1>Fetchoo</h1>
+        <p class="tagline">Fetch the web, cleanly.</p>
+        <p class="subline">给它一个网页链接，返回干净的结构化内容。无论网页多难抓——有反爬、要登录、加载慢——Fetchoo 自动找到能用的方式拿到数据。</p>
+        <div class="input-bar">
+          <input id="urlInput" type="text" placeholder="粘贴一个 URL 试试…" spellcheck="false" autocomplete="off" />
+          <button id="fetchBtn" onclick="doFetch()">Fetch →</button>
         </div>
-        <h1
-          class="font-display text-5xl lg:text-7xl font-bold tracking-tight mb-6"
-        >
-          Fetchoo
-        </h1>
-        <p class="text-text-secondary text-xl lg:text-2xl mb-4 font-display">
-          Fetch the web, cleanly.
-        </p>
-        <p class="text-text-secondary text-lg mb-12 max-w-2xl mx-auto">
-          Web content, ready for AI. 多源降级抓取，JSON 结构化输出，智能缓存。
-        </p>
-        <div class="flex flex-wrap justify-center gap-4">
-          <a
-            href="#api"
-            class="bg-accent hover:bg-amber-600 text-white font-medium px-8 py-3 rounded-lg transition-colors inline-flex items-center gap-2"
-          >
-            <span>Try API</span>
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
-          </a>
-          <a
-            href="https://github.com/TwoThreeWang/Fetchoo"
-            class="bg-surface hover:bg-gray-800 text-text-primary font-medium px-8 py-3 rounded-lg border border-border transition-colors inline-flex items-center gap-2"
-          >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
-              />
-            </svg>
-            <span>GitHub</span>
-          </a>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Features Section -->
-    <section class="px-6 py-16">
-      <div class="max-w-5xl mx-auto">
-        <div class="grid md:grid-cols-3 gap-6">
-          <div
-            class="bg-surface border border-border rounded-xl p-6 hover:border-accent/50 transition-colors"
-          >
-            <div
-              class="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center mb-4"
-            >
-              <svg
-                class="w-5 h-5 text-accent"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                ></path>
-              </svg>
-            </div>
-            <h3 class="font-display font-semibold text-lg mb-2">
-              串行降级抓取
-            </h3>
-            <p class="text-text-secondary text-sm">
-              HTTP → Browser → WebPageSnap → markdown.new → Defuddle → Jina →
-              Brave Search，8 级智能降级，失败自动兜底。
-            </p>
-          </div>
-          <div
-            class="bg-surface border border-border rounded-xl p-6 hover:border-accent/50 transition-colors"
-          >
-            <div
-              class="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center mb-4"
-            >
-              <svg
-                class="w-5 h-5 text-accent"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                ></path>
-              </svg>
-            </div>
-            <h3 class="font-display font-semibold text-lg mb-2">多源聚合</h3>
-            <p class="text-text-secondary text-sm">
-              8
-              种抓取策略：HTTP、Browser、WebPageSnap、markdown.new、Defuddle、Jina、FxTwitter（Twitter
-              专用）、Brave Search（搜索兜底）。
-            </p>
-          </div>
-          <div
-            class="bg-surface border border-border rounded-xl p-6 hover:border-accent/50 transition-colors"
-          >
-            <div
-              class="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center mb-4"
-            >
-              <svg
-                class="w-5 h-5 text-accent"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
-              </svg>
-            </div>
-            <h3 class="font-display font-semibold text-lg mb-2">智能缓存</h3>
-            <p class="text-text-secondary text-sm">
-              内存 LRU + SQLite 双级缓存，TTL 过期自动清理，重复请求毫秒级响应。
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
+      <!-- Pipeline -->
+      <section class="pipeline-section" id="pipelineSection">
+        <div class="pipeline-label">降级链 · degradation pipeline</div>
+        <div class="pipeline" id="pipeline"></div>
+      </section>
 
-    <!-- API Demo Section -->
-    <section id="api" class="px-6 py-16">
-      <div class="max-w-3xl mx-auto">
-        <h2 class="font-display text-2xl font-semibold mb-6 text-center">
-          API 演示
-        </h2>
+      <!-- Result -->
+      <section class="result-section" id="resultSection">
+        <div class="result-bar">
+          <div class="result-status" id="resultStatus"></div>
+          <div class="result-meta" id="resultMeta"></div>
+        </div>
         <div class="code-window">
           <div class="code-header">
-            <div class="dot dot-red"></div>
-            <div class="dot dot-yellow"></div>
-            <div class="dot dot-green"></div>
-            <span class="text-text-secondary text-sm ml-2 font-mono"
-              >GET /fetch?url=...</span
-            >
-          </div>
-          <div class="p-4 font-mono text-sm overflow-x-auto">
-            <div class="text-text-secondary mb-2">// Request</div>
-            <div class="text-green-400">curl</div>
-            <div class="text-text-primary ml-4">
-              "https://fetchoo.c2v2.com/fetch?url=https://example.com"
-            </div>
-
-            <div class="text-text-secondary mt-4 mb-2">// Response</div>
-            <pre class="text-text-primary">
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "url": "https://example.com",
-    "title": "Example Domain",
-    "content": "This domain is for use in...",
-    "mode": "http",
-    "fetch_time": 0.23,
-    "content_length": 1256,
-    "selector_matched": "article",
-    "success": true,
-    "metadata": {
-      "url": "https://example.com",
-      "title": "Example Domain",
-      "description": "...",
-      "image": "...",
-      "author": "...",
-      "publish_date": "...",
-      "site_name": "..."
-    }
-  }
-}</pre
-            >
-          </div>
-        </div>
-
-        <!-- 响应字段说明 -->
-        <div class="mt-6 bg-surface border border-border rounded-xl p-6">
-          <h3 class="font-display font-semibold mb-4">响应字段说明</h3>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
-              <thead class="text-text-secondary border-b border-border">
-                <tr>
-                  <th class="pb-2 pr-4">字段</th>
-                  <th class="pb-2 pr-4">类型</th>
-                  <th class="pb-2">说明</th>
-                </tr>
-              </thead>
-              <tbody class="text-text-primary">
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">code</td>
-                  <td class="pr-4">int</td>
-                  <td>HTTP 状态码（200 成功，400 参数错误，500 服务端错误）</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">message</td>
-                  <td class="pr-4">string</td>
-                  <td>状态描述</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">data.url</td>
-                  <td class="pr-4">string</td>
-                  <td>目标网页 URL（可能被 canonical 修正）</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">data.title</td>
-                  <td class="pr-4">string</td>
-                  <td>页面标题</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">data.content</td>
-                  <td class="pr-4">string</td>
-                  <td>提取的正文内容（Markdown 或纯文本）</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">data.mode</td>
-                  <td class="pr-4">string</td>
-                  <td>
-                    抓取模式：http / stealth / webpagesnap / markdown-new /
-                    defuddle / jina / fxtwitter / brave-search / cached
-                  </td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">
-                    data.fetch_time
-                  </td>
-                  <td class="pr-4">float</td>
-                  <td>抓取耗时（秒）</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">
-                    data.content_length
-                  </td>
-                  <td class="pr-4">int</td>
-                  <td>content 字符数</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">
-                    data.selector_matched
-                  </td>
-                  <td class="pr-4">string</td>
-                  <td>匹配到的 CSS 选择器（如 article、main 等）</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">data.success</td>
-                  <td class="pr-4">bool</td>
-                  <td>是否成功抓取到有效内容</td>
-                </tr>
-                <tr class="border-b border-border/50">
-                  <td class="py-2 pr-4 font-mono text-accent">
-                    data.metadata.*
-                  </td>
-                  <td class="pr-4">object</td>
-                  <td>
-                    页面元信息：title / description / image / author /
-                    publish_date / site_name
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="mt-6 grid md:grid-cols-2 gap-4 text-sm">
-          <div class="bg-surface border border-border rounded-lg p-4">
-            <div class="text-accent font-mono mb-1">GET /fetch</div>
-            <div class="text-text-secondary">单页抓取</div>
-            <div class="text-text-secondary mt-2">
-              ?url= 必需 | ?stealth= | ?no_cache=
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <div class="code-tabs">
+              <button class="code-tab active" onclick="showTab('json', this)">JSON</button>
+              <button class="code-tab" onclick="showTab('curl', this)">curl</button>
             </div>
           </div>
-          <div class="bg-surface border border-border rounded-lg p-4">
-            <div class="text-accent font-mono mb-1">POST /batch-fetch</div>
-            <div class="text-text-secondary">批量抓取（最多 10 并发）</div>
-            <div class="text-text-secondary mt-2">
-              Body: {urls: [], max_concurrent: 3}
+          <div class="code-body" id="codeBody"></div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- What Is -->
+      <section class="what-section">
+        <div class="section-label">这是什么</div>
+        <div class="section-title">把任意网页变成 AI 能用的数据</div>
+        <div class="section-desc">
+          很多网页内容对人类来说很容易阅读，但对程序来说很难提取——广告混在正文里、文章藏在 JavaScript 后面、反爬机制挡住了请求。Fetchoo 解决的就是这个问题：它尝试多种方式抓取网页，自动选出最好的结果，然后输出干净的、结构化的 JSON 数据，让 AI 应用可以直接使用。
+        </div>
+        <div class="what-grid">
+          <div class="what-card">
+            <h4>输入</h4>
+            <p>任意网页 URL。公众号文章、知乎回答、GitHub 仓库、新闻页面、Twitter 推文……什么都行。</p>
+          </div>
+          <div class="what-card">
+            <h4>输出</h4>
+            <p>JSON 格式的结构化数据，包含 Markdown 正文、标题、作者、发布时间、网站描述等元信息。AI 模型或下游程序可以直接消费。</p>
+          </div>
+          <div class="what-card">
+            <h4>过程</h4>
+            <p>自动尝试 9 种不同的抓取方式，从最快到最稳，直到拿到有效内容。整个过程对调用方透明——你只需要一个 URL，剩下的交给 Fetchoo。</p>
+          </div>
+          <div class="what-card">
+            <h4>加速</h4>
+            <p>双级缓存（内存 + SQLite）自动缓存结果。同一个 URL 第二次请求时，直接返回缓存，毫秒级响应。</p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- How It Works -->
+      <section class="how-section">
+        <div class="section-label">工作原理</div>
+        <div class="section-title">9 级降级，总有一种能抓到</div>
+        <div class="section-desc">
+          不是所有网页都能用同一种方式抓取。有些网页 HTTP 直接请求就行，有些需要浏览器渲染 JavaScript，有些被反爬拦截需要特殊代理。Fetchoo 的策略是：先试最快的方式，失败了自动切换到下一种，直到成功为止。
+        </div>
+        <div class="how-flow">
+          <div class="how-step">
+            <div class="how-num">1</div>
+            <div class="how-content">
+              <h4>HTTP 直接请求</h4>
+              <p>最快、零成本。直接用 HTTP 请求获取网页 HTML，适合静态页面（博客、新闻、文档）。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">2</div>
+            <div class="how-content">
+              <h4>浏览器渲染</h4>
+              <p>启动无头浏览器加载页面，等待 JavaScript 执行完成后再提取内容。适合需要 JS 渲染的现代网页。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">3</div>
+            <div class="how-content">
+              <h4>Firecrawl stealth 代理</h4>
+              <p>通过 Firecrawl 的 stealth 代理网络请求，自带反检测能力，专门绕过 Cloudflare 等反爬系统。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">4</div>
+            <div class="how-content">
+              <h4>WebPageSnap</h4>
+              <p>第三方网页快照服务，用不同的 IP 和浏览器指纹抓取页面。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">5</div>
+            <div class="how-content">
+              <h4>markdown.new</h4>
+              <p>URL 转 Markdown 服务，擅长提取文章类内容，自动去除导航栏、广告等干扰元素。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">6</div>
+            <div class="how-content">
+              <h4>Defuddle</h4>
+              <p>内容清洗服务，从 HTML 中智能提取正文，支持多种网页结构。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">7</div>
+            <div class="how-content">
+              <h4>Jina Reader</h4>
+              <p>通用内容提取 API，覆盖面广，是可靠的兜底方案之一。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">8</div>
+            <div class="how-content">
+              <h4>FxTwitter（Twitter 专用）</h4>
+              <p>Twitter/X 链接自动走这条路径，通过 FxTwitter API 获取推文内容、媒体和互动数据。</p>
+            </div>
+          </div>
+          <div class="how-step">
+            <div class="how-num">9</div>
+            <div class="how-content">
+              <h4>Brave Search 兜底</h4>
+              <p>最后一道防线。当所有直接抓取方式都失败时，用目标 URL 作为搜索词在 Brave Search 中查找，返回搜索快照中的内容。</p>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Data Sources Section -->
-    <section class="px-6 py-16">
-      <div class="max-w-5xl mx-auto">
-        <h2 class="font-display text-2xl font-semibold mb-8 text-center">
-          支持的抓取策略
-        </h2>
-        <div class="flex flex-wrap justify-center gap-3">
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-            <span class="text-sm font-medium">HTTP</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-            <span class="text-sm font-medium">Browser</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-purple-500 rounded-full"></span>
-            <span class="text-sm font-medium">WebPageSnap</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-pink-500 rounded-full"></span>
-            <span class="text-sm font-medium">markdown.new</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
-            <span class="text-sm font-medium">Defuddle</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-teal-500 rounded-full"></span>
-            <span class="text-sm font-medium">Jina</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-sky-500 rounded-full"></span>
-            <span class="text-sm font-medium">FxTwitter</span>
-          </div>
-          <div
-            class="flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-2"
-          >
-            <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
-            <span class="text-sm font-medium">Brave Search</span>
-          </div>
-        </div>
-        <p class="text-text-secondary text-center text-sm mt-6">
-          Twitter/X 链接自动使用 FxTwitter 优先抓取；所有方式失败后 Brave Search
-          兜底
-        </p>
-      </div>
-    </section>
+      <hr class="divider" />
 
-    <!-- Footer -->
-    <footer class="px-6 py-12 border-t border-border">
-      <div
-        class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4"
-      >
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🦝</span>
-          <span class="font-display font-semibold">Fetchoo</span>
+      <!-- Features -->
+      <section class="features">
+        <div class="section-label">核心特性</div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <h3>智能降级</h3>
+            <p>零配置，自动选择最快的抓取路径。微信/知乎等强反爬站点自动启用浏览器模式，Twitter 链接自动走专用 API。</p>
+            <span class="highlight">9 种策略 · 自动切换</span>
+          </div>
+          <div class="feature-card">
+            <h3>结构化输出</h3>
+            <p>JSON 格式返回，正文为 Markdown，元数据包含标题、描述、作者、发布时间、站点名称。AI pipeline 直接消费，无需二次处理。</p>
+            <span class="highlight">Markdown 正文 + JSON 元数据</span>
+          </div>
+          <div class="feature-card">
+            <h3>双级缓存</h3>
+            <p>内存 LRU（500 条）加速热点请求，SQLite 持久化（7 天 TTL）保证重启不丢数据。重复请求毫秒级返回。</p>
+            <span class="highlight">内存 + SQLite · TTL 7 天</span>
+          </div>
+          <div class="feature-card">
+            <h3>速率限制</h3>
+            <p>全局 + 域名级双维度限速，内置微信/知乎/CSDN 等站点的延迟配置。防止被目标站点封禁，也保护下游 API 配额。</p>
+            <span class="highlight">5 RPS 全局 · 域名级延迟</span>
+          </div>
+          <div class="feature-card">
+            <h3>反爬措施</h3>
+            <p>随机 User-Agent 池、Referer 伪装、Sec-Fetch 头，模拟真实浏览器请求。Firecrawl stealth 代理绕过 Cloudflare。</p>
+            <span class="highlight">UA 池 · Stealth 代理</span>
+          </div>
+          <div class="feature-card">
+            <h3>批量抓取</h3>
+            <p>一次请求最多 20 个 URL，并发控制避免过载。适合批量采集场景，如 RSS 全量更新、知识库构建。</p>
+            <span class="highlight">POST /batch-fetch · 最多 20 URL</span>
+          </div>
         </div>
-        <div class="text-text-secondary text-sm">
-          © 2026 Fetchoo. MIT License.
+      </section>
+
+      <hr class="divider" />
+
+      <!-- Use Cases -->
+      <section class="usecases">
+        <div class="section-label">使用场景</div>
+        <div class="section-title">谁在用 Fetchoo</div>
+        <div class="usecase-grid">
+          <div class="usecase-card">
+            <span class="uc-icon">🤖</span>
+            <h4>AI 应用开发者</h4>
+            <p>为 RAG 系统、知识库、AI Agent 提供网页内容源。Fetchoo 返回的结构化 JSON 可以直接喂给 LLM，无需额外清洗。</p>
+            <div class="uc-example">curl "/fetch?url=https://article.com" → LLM context</div>
+          </div>
+          <div class="usecase-card">
+            <span class="uc-icon">📰</span>
+            <h4>内容聚合</h4>
+            <p>监控多个网站的内容更新，自动提取正文和元信息。适合 RSS 替代方案、竞品监控、舆情分析。</p>
+            <div class="uc-example">POST /batch-fetch {urls: [...]} → 批量更新</div>
+          </div>
+          <div class="usecase-card">
+            <span class="uc-icon">🔗</span>
+            <h4>链接预览</h4>
+            <p>为应用生成链接预览卡片。metadata 字段包含 title、description、image，直接用于渲染预览 UI。</p>
+            <div class="uc-example">metadata.title + metadata.image → 预览卡片</div>
+          </div>
+          <div class="usecase-card">
+            <span class="uc-icon">📊</span>
+            <h4>数据采集</h4>
+            <p>从各类网页中提取结构化数据。支持反爬站点（微信、知乎）、需要 JS 渲染的现代页面、Twitter 推文。</p>
+            <div class="uc-example">?url=https://mp.weixin.qq.com/... → Markdown</div>
+          </div>
         </div>
-        <a
-          href="https://github.com/TwoThreeWang/Fetchoo"
-          class="text-text-secondary hover:text-text-primary text-sm transition-colors"
-        >
-          GitHub →
-        </a>
-      </div>
-    </footer>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- Endpoints -->
+      <section class="endpoints">
+        <div class="section-label">API 端点</div>
+        <div class="endpoint-grid">
+          <div class="endpoint-card">
+            <div class="endpoint-method">GET</div>
+            <div class="endpoint-path">/fetch</div>
+            <div class="endpoint-desc">单页抓取，返回结构化 JSON</div>
+            <div class="endpoint-params">
+              <span class="required">url</span> 必填 · 目标网页 URL<br/>
+              stealth 强制浏览器模式<br/>
+              no_cache 跳过缓存直接抓取
+            </div>
+          </div>
+          <div class="endpoint-card">
+            <div class="endpoint-method">POST</div>
+            <div class="endpoint-path">/batch-fetch</div>
+            <div class="endpoint-desc">批量抓取，最多 20 个 URL</div>
+            <div class="endpoint-params">
+              { urls: [], max_concurrent: 3 }<br/>
+              max_concurrent 默认 3，上限 10
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- Response Fields -->
+      <section class="response-fields">
+        <div class="section-label">返回格式</div>
+        <div class="section-title">响应字段说明</div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="field-name">code</span></td>
+              <td><span class="field-type">int</span></td>
+              <td class="field-desc">状态码。200 成功，400 参数错误，500 服务端错误。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">message</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">状态描述。成功时为 "success"。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.url</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">最终使用的 URL。如果页面有 canonical 标签，会返回 canonical URL。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.title</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">页面标题。优先取 Open Graph 标题，其次取 HTML title 标签。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.content</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">提取的正文内容，Markdown 格式。去除了导航栏、广告、侧边栏等干扰元素，只保留正文。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.mode</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">实际命中的抓取策略。告诉你这次请求是用哪种方式成功的。
+                <span class="field-note">http / stealth / firecrawl / webpagesnap / markdown-new / defuddle / jina / fxtwitter / brave-search / cached</span>
+              </td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.fetch_time</span></td>
+              <td><span class="field-type">float</span></td>
+              <td class="field-desc">抓取耗时，单位秒。命中缓存时通常 < 0.01s。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.content_length</span></td>
+              <td><span class="field-type">int</span></td>
+              <td class="field-desc">正文内容的字符数。可用于判断页面是否有足够内容。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.selector_matched</span></td>
+              <td><span class="field-type">string</span></td>
+              <td class="field-desc">匹配到的 CSS 选择器。Fetchoo 用智能选择器提取正文，如 article、main、.post-content 等。</td>
+            </tr>
+            <tr>
+              <td><span class="field-name">data.metadata</span></td>
+              <td><span class="field-type">object</span></td>
+              <td class="field-desc">页面元信息，从 HTML meta 标签和 Open Graph 标签提取：
+                <span class="field-note">title · description · image · author · publish_date · site_name</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- Open Source -->
+      <section class="opensource">
+        <div class="os-card">
+          <div class="os-icon">📦</div>
+          <div class="os-content">
+            <h4>开源 · 自托管</h4>
+            <p>Fetchoo 是开源项目，MIT 协议。你可以用 Docker 一行命令部署到自己的服务器，数据完全自控。也可以直接使用公共实例。</p>
+            <a class="os-link" href="https://github.com/TwoThreeWang/Fetchoo">GitHub →</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="site-footer">
+        <div class="footer-inner">
+          <div class="footer-brand">🦝 Fetchoo · MIT License</div>
+          <div class="footer-links">
+            <a href="https://github.com/TwoThreeWang/Fetchoo">GitHub</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // === Pipeline Steps ===
+      const STEPS = [
+        { id: 'http',        label: 'HTTP',        icon: 'H' },
+        { id: 'browser',     label: 'Browser',     icon: 'B' },
+        { id: 'firecrawl',   label: 'Firecrawl',   icon: 'F' },
+        { id: 'webpagesnap', label: 'WebPageSnap', icon: 'W' },
+        { id: 'markdown',    label: 'md.new',      icon: 'M' },
+        { id: 'defuddle',    label: 'Defuddle',    icon: 'D' },
+        { id: 'jina',        label: 'Jina',        icon: 'J' },
+        { id: 'fxtwitter',   label: 'FxTwitter',   icon: 'X' },
+        { id: 'brave',       label: 'Brave',       icon: 'Br' },
+      ];
+
+      const MODE_TO_STEP = {
+        'http': 0, 'stealth': 1, 'firecrawl': 2, 'webpagesnap': 3,
+        'markdown-new': 4, 'defuddle': 5, 'jina': 6,
+        'fxtwitter': 7, 'brave-search': 8, 'cached': -1,
+      };
+
+      let currentResult = null;
+
+      function buildPipeline() {
+        const el = document.getElementById('pipeline');
+        el.innerHTML = STEPS.map((s, i) => `
+          <div class="step" id="step-${i}">
+            <div class="step-node">${s.icon}</div>
+            <div class="step-name">${s.label}</div>
+            <div class="step-time" id="step-time-${i}"></div>
+          </div>
+        `).join('');
+      }
+
+      function resetPipeline() {
+        STEPS.forEach((_, i) => {
+          document.getElementById('step-' + i).className = 'step';
+          document.getElementById('step-time-' + i).textContent = '';
+        });
+      }
+
+      async function animatePipeline(successIndex, totalTime) {
+        resetPipeline();
+        const delayBase = Math.min(totalTime * 1000 / (successIndex + 1), 400);
+
+        for (let i = 0; i <= successIndex; i++) {
+          const el = document.getElementById('step-' + i);
+          el.className = 'step running';
+          el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+          await sleep(delayBase + Math.random() * 150);
+
+          if (i < successIndex) {
+            el.className = 'step fail';
+            document.getElementById('step-time-' + i).textContent = (delayBase * (0.3 + Math.random() * 0.5) / 1000).toFixed(2) + 's';
+          } else {
+            el.className = 'step success';
+            document.getElementById('step-time-' + i).textContent = Math.max(0.05, totalTime - (successIndex * delayBase / 1000)).toFixed(2) + 's';
+          }
+        }
+
+        for (let i = successIndex + 1; i < STEPS.length; i++) {
+          document.getElementById('step-' + i).className = 'step skip';
+        }
+      }
+
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+      async function doFetch() {
+        const url = document.getElementById('urlInput').value.trim();
+        if (!url) { document.getElementById('urlInput').focus(); return; }
+
+        const btn = document.getElementById('fetchBtn');
+        btn.disabled = true;
+        btn.textContent = 'Fetching…';
+        document.getElementById('pipelineSection').classList.add('active');
+        document.getElementById('resultSection').classList.remove('active');
+        resetPipeline();
+
+        let animating = true;
+        const quickPulse = async () => {
+          let i = 0;
+          while (animating) {
+            const el = document.getElementById('step-' + (i % STEPS.length));
+            if (el) { el.classList.add('running'); await sleep(200); }
+            i++;
+          }
+        };
+        quickPulse();
+
+        try {
+          const resp = await fetch('/fetch?url=' + encodeURIComponent(url));
+          const data = await resp.json();
+          animating = false;
+          await sleep(200);
+
+          currentResult = data;
+          const success = data.code === 200 && data.data;
+          const mode = success ? data.data.mode : 'failed';
+          const stepIndex = MODE_TO_STEP[mode] ?? 0;
+          const fetchTime = success ? data.data.fetch_time : 0;
+
+          if (mode === 'cached') {
+            resetPipeline();
+            const el = document.getElementById('step-0');
+            el.className = 'step success';
+            el.querySelector('.step-node').textContent = 'C';
+            el.querySelector('.step-name').textContent = 'Cached';
+            document.getElementById('step-time-0').textContent = fetchTime.toFixed(2) + 's';
+            for (let i = 1; i < STEPS.length; i++) document.getElementById('step-' + i).className = 'step skip';
+          } else {
+            await animatePipeline(stepIndex, fetchTime);
+          }
+
+          showResult(data);
+        } catch (err) {
+          animating = false;
+          resetPipeline();
+          showResult({ code: 0, message: 'Network error: ' + err.message });
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Fetch →';
+      }
+
+      function showResult(data) {
+        document.getElementById('resultSection').classList.add('active');
+        const success = data.code === 200 && data.data;
+        const statusEl = document.getElementById('resultStatus');
+        const metaEl = document.getElementById('resultMeta');
+
+        if (success) {
+          const d = data.data;
+          statusEl.className = 'result-status ok';
+          statusEl.innerHTML = `<span>●</span> ${d.mode.toUpperCase()} · ${d.content_length.toLocaleString()} chars`;
+          metaEl.innerHTML = `
+            <span>time <span class="val">${d.fetch_time.toFixed(2)}s</span></span>
+            <span>selector <span class="val">${d.selector_matched || '—'}</span></span>
+          `;
+        } else {
+          statusEl.className = 'result-status err';
+          statusEl.innerHTML = `<span>●</span> ${data.code} · ${data.message || 'Failed'}`;
+          metaEl.innerHTML = '';
+        }
+        showTab('json');
+      }
+
+      function showTab(tab, btnEl) {
+        document.querySelectorAll('.code-tab').forEach(b => b.classList.remove('active'));
+        if (btnEl) { btnEl.classList.add('active'); } else { document.querySelectorAll('.code-tab')[0].classList.add('active'); }
+
+        const body = document.getElementById('codeBody');
+        if (tab === 'json') {
+          if (currentResult) body.innerHTML = '<pre>' + syntaxHighlight(JSON.stringify(currentResult, null, 2)) + '</pre>';
+        } else if (tab === 'curl') {
+          const url = document.getElementById('urlInput').value.trim();
+          body.innerHTML = '<pre>' + escapeHtml('curl "https://fetchoo.c2v2.com/fetch?url=' + url + '"') + '</pre>';
+        }
+      }
+
+      function syntaxHighlight(json) {
+        return escapeHtml(json)
+          .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+          .replace(/: "([^"]*)"/g, ': <span class="json-str">"$1"</span>')
+          .replace(/: (\d+\.?\d*)/g, ': <span class="json-num">$1</span>')
+          .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+          .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+      }
+
+      function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      buildPipeline();
+      document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') doFetch(); });
+    </script>
   </body>
 </html>

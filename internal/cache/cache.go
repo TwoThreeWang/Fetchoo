@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -36,18 +37,22 @@ func NewSQLiteCache(dbPath string, ttlDays int) (*SQLiteCache, error) {
 	db.SetMaxOpenConns(1)
 
 	c := &SQLiteCache{DB: db, TTLDays: ttlDays}
-	c.initDB()
+	if err := c.initDB(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("初始化缓存表失败: %w", err)
+	}
 	return c, nil
 }
 
-func (c *SQLiteCache) initDB() {
-	c.DB.Exec(`CREATE TABLE IF NOT EXISTS cache (
+func (c *SQLiteCache) initDB() error {
+	_, err := c.DB.Exec(`CREATE TABLE IF NOT EXISTS cache (
 		url_hash TEXT PRIMARY KEY,
 		url TEXT NOT NULL,
 		content TEXT NOT NULL,
 		metadata TEXT NOT NULL,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	)`)
+	return err
 }
 
 func (c *SQLiteCache) urlHash(rawURL string) string {

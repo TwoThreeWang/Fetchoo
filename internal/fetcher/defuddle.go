@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -69,8 +68,7 @@ func (dr *DefuddleReader) Fetch(targetURL string) (string, string, map[string]st
 
 	body, frontmatter := ParseFrontmatter(string(rawText))
 
-	re := regexp.MustCompile(`\n{3,}`)
-	body = re.ReplaceAllString(body, "\n\n")
+	body = reMultiNewline.ReplaceAllString(body, "\n\n")
 	body = strings.TrimSpace(body)
 
 	log.Printf("[defuddle] ✓ %s | %d chars | meta=%v", utils.Truncate(targetURL, 50), len(body), len(frontmatter) > 0)

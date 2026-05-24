@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -68,8 +67,7 @@ func (jr *JinaReader) Fetch(targetURL string) (string, string, error) {
 	}
 
 	result := strings.TrimSpace(string(text))
-	re := regexp.MustCompile(`\n{3,}`)
-	result = re.ReplaceAllString(result, "\n\n")
+	result = reMultiNewline.ReplaceAllString(result, "\n\n")
 
 	log.Printf("[jina] ✓ %s | %d chars", utils.Truncate(targetURL, 50), len(result))
 

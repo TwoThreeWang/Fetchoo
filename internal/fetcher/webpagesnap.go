@@ -1,6 +1,8 @@
 package fetcher
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -96,6 +98,19 @@ func (ws *WebPageSnapFetcher) Fetch(targetURL string, maxChars int) (string, str
 	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", "", types.WebMetadata{}, fmt.Errorf("webpagesnap 读取响应失败: %w", err)
+	}
+
+	// 处理 gzip 压缩响应（Accept-Encoding 显式设置后 Go 不会自动解压）
+	if len(bodyBytes) >= 2 && bodyBytes[0] == 0x1f && bodyBytes[1] == 0x8b {
+		gr, err := gzip.NewReader(bytes.NewReader(bodyBytes))
+		if err != nil {
+			return "", "", types.WebMetadata{}, fmt.Errorf("webpagesnap gzip 解压失败: %w", err)
+		}
+		defer gr.Close()
+		bodyBytes, err = io.ReadAll(gr)
+		if err != nil {
+			return "", "", types.WebMetadata{}, fmt.Errorf("webpagesnap gzip 读取失败: %w", err)
+		}
 	}
 
 	var snapResp WebPageSnapResponse

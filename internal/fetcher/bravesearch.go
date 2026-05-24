@@ -21,6 +21,7 @@ type BraveSearchFetcher struct {
 	rateLimiter    *ratelimit.RateLimiter
 	apiKey         string
 	count          int
+	client         *http.Client
 }
 
 // NewBraveSearchFetcher 创建 Brave Search 抓取器
@@ -33,6 +34,7 @@ func NewBraveSearchFetcher(hm *headers.HeadersManager, rl *ratelimit.RateLimiter
 		rateLimiter:    rl,
 		apiKey:         apiKey,
 		count:          5,
+		client:         &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -54,8 +56,7 @@ func (bs *BraveSearchFetcher) Fetch(targetURL string, maxChars int) (string, str
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Subscription-Token", bs.apiKey)
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := bs.client.Do(req)
 	if err != nil {
 		return "", "", types.WebMetadata{}, err
 	}

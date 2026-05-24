@@ -19,24 +19,25 @@ func main() {
 	var (
 		port           string
 		cacheDB        string
+		logDir         string
 		useBrowser     bool
 		disableBrowser bool
 		proxy          string
 	)
 
 	flag.StringVar(&port, "port", "5000", "服务端口")
-	flag.StringVar(&cacheDB, "cache-db", "/app/data/fetch_cache.db", "缓存数据库路径")
+	flag.StringVar(&cacheDB, "cache-db", "./data/fetch_cache.db", "缓存数据库路径")
+	flag.StringVar(&logDir, "log-dir", "./logs", "日志目录")
 	flag.BoolVar(&useBrowser, "browser", false, "强制启用浏览器模式")
 	flag.BoolVar(&disableBrowser, "no-browser", false, "禁用浏览器模式")
 	flag.StringVar(&proxy, "proxy", "", "代理地址 (如 http://127.0.0.1:7890)")
 	flag.Parse()
 
 	gin.SetMode(gin.ReleaseMode)
-	logDir := "/app/logs"
 	os.MkdirAll(logDir, 0755)
 
 	// 初始化日志（同时写文件和控制台）
-	logFile, err := os.OpenFile(logDir+"/web_fetcher.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(logDir+"/fetchoo.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		log.Fatalf("无法打开日志文件: %v", err)
 	}
@@ -57,12 +58,15 @@ func main() {
 	if braveAPIKey != "" {
 		log.Println("[main] Brave Search API Key 已配置")
 	}
+	firecrawlAPIKey := os.Getenv("FIRECRAWL_API_KEY")
+	if firecrawlAPIKey != "" {
+		log.Println("[main] Firecrawl API Key 已配置")
+	}
 
-	f, err := fetcher.NewWebContentFetcher(cacheDB, browserFlag, proxy, braveAPIKey)
+	f, err := fetcher.NewWebContentFetcher(cacheDB, browserFlag, proxy, braveAPIKey, firecrawlAPIKey)
 	if err != nil {
 		log.Fatalf("初始化失败: %v", err)
 	}
-	defer f.Close()
 
 	router := server.SetupRouter(f)
 

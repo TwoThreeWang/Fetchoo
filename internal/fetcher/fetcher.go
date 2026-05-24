@@ -3,6 +3,7 @@ package fetcher
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,8 @@ const (
 	memCacheCleanInterval = 5 * time.Minute    // 内存缓存清理间隔
 	maxRetries            = 1
 )
+
+var reMultiNewline = regexp.MustCompile(`\n{3,}`)
 
 // stealthDomains 需要强制使用浏览器抓取的域名
 var stealthDomains = map[string]bool{
@@ -45,6 +48,7 @@ type WebContentFetcher struct {
 	jina          *JinaReader
 	webpagesnap   *WebPageSnapFetcher
 	markdownnew   *MarkdownNewFetcher
+	firecrawl     *FirecrawlFetcher
 	fxtwitter     *FxTwitterFetcher
 	bravesearch   *BraveSearchFetcher
 	browser       *StealthBrowser
@@ -52,7 +56,7 @@ type WebContentFetcher struct {
 }
 
 // NewWebContentFetcher 创建 Fetcher 实例
-func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveAPIKey string) (*WebContentFetcher, error) {
+func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveAPIKey string, firecrawlAPIKey string) (*WebContentFetcher, error) {
 	hm := headers.NewHeadersManager()
 	rl := ratelimit.NewRateLimiter(5.0)
 	c, err := cache.NewSQLiteCache(cacheDB, 7)
@@ -72,6 +76,7 @@ func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveA
 		webpagesnap:  NewWebPageSnapFetcher(hm, rl),
 		markdownnew:  NewMarkdownNewFetcher(hm, rl),
 		fxtwitter:    NewFxTwitterFetcher(hm, rl),
+		firecrawl:    NewFirecrawlFetcher(hm, rl, firecrawlAPIKey),
 		bravesearch:  NewBraveSearchFetcher(hm, rl, braveAPIKey),
 	}
 
@@ -133,8 +138,10 @@ func (wf *WebContentFetcher) Fetch(targetURL string, maxChars int, forceStealth,
 	// 1. 检查内存缓存
 	if !skipCache {
 		if cached, ok := wf.memCache.Load(targetURL); ok {
-			cr := cached.(*memCacheEntry)
-			if time.Since(cr.createdAt) < time.Duration(wf.cache.TTLDays)*24*time.Hour {
+			cr, ok := cached.(*memCacheEntry)
+			if !ok {
+				wf.memCache.Delete(targetURL)
+			} else if time.Since(cr.createdAt) < time.Duration(wf.cache.TTLDays)*24*time.Hour {
 				return types.FetchResult{
 					URL: targetURL, Title: cr.meta.Title, Content: cr.content,
 					Metadata: cr.meta, Mode: "cached",
@@ -151,6 +158,16 @@ func (wf *WebContentFetcher) Fetch(targetURL string, maxChars int, forceStealth,
 		// 2. 检查 SQLite 缓存
 		content, meta, found := wf.cache.Get(targetURL)
 		if found {
+			wf.memCacheMu.Lock()
+			if int(wf.memCacheCount) >= maxMemCacheEntries && len(wf.memCacheKeys) > 0 {
+				evictKey := wf.memCacheKeys[0]
+				wf.memCacheKeys = wf.memCacheKeys[1:]
+				wf.memCache.Delete(evictKey)
+				wf.memCacheCount--
+			}
+			wf.memCacheKeys = append(wf.memCacheKeys, targetURL)
+			wf.memCacheCount++
+			wf.memCacheMu.Unlock()
 			wf.memCache.Store(targetURL, &memCacheEntry{content: content, meta: meta, createdAt: time.Now()})
 			return types.FetchResult{
 				URL: targetURL, Title: meta.Title, Content: content,
@@ -178,7 +195,7 @@ func (wf *WebContentFetcher) Fetch(targetURL string, maxChars int, forceStealth,
 	if content != "" {
 		wf.memCacheMu.Lock()
 		// LRU 淘汰：超过上限时删除最早的条目
-		if int(wf.memCacheCount) >= maxMemCacheEntries && len(wf.memCacheKeys) > 0 {
+		for int(wf.memCacheCount) >= maxMemCacheEntries && len(wf.memCacheKeys) > 0 {
 			evictKey := wf.memCacheKeys[0]
 			wf.memCacheKeys = wf.memCacheKeys[1:]
 			wf.memCache.Delete(evictKey)
@@ -247,13 +264,26 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 			return brMd, "stealth", brSel, metadata, nil
 		}
 		if brErr != nil {
-			log.Printf("[fetcher] Browser 失败，降级到 WebPageSnap: %v", brErr)
+			log.Printf("[fetcher] Browser 失败，降级到 Firecrawl: %v", brErr)
 		} else {
-			log.Printf("[fetcher] Browser 内容过少(%d字符)，降级到 WebPageSnap", len(brMd))
+			log.Printf("[fetcher] Browser 内容过少(%d字符)，降级到 Firecrawl", len(brMd))
 		}
 	}
 
-	// 3. WebPageSnap
+	// 3. Firecrawl（stealth 代理，绕 Cloudflare）
+	if wf.firecrawl != nil {
+		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
+		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+			return fcContent, "firecrawl", fcSel, fcMeta, nil
+		}
+		if fcErr != nil {
+			log.Printf("[fetcher] Firecrawl 失败，降级到 WebPageSnap: %v", fcErr)
+		} else {
+			log.Printf("[fetcher] Firecrawl 内容过少(%d字符)，降级到 WebPageSnap", len(fcContent))
+		}
+	}
+
+	// 4. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
 	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
@@ -264,7 +294,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 		log.Printf("[fetcher] WebPageSnap 内容过少(%d字符)，降级到 markdown.new", len(snapContent))
 	}
 
-	// 4. markdown.new
+	// 5. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
 	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
@@ -275,7 +305,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 		log.Printf("[fetcher] markdown.new 内容过少(%d字符)，降级到 Defuddle", len(mnContent))
 	}
 
-	// 5. Defuddle
+	// 6. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
 	if defErr == nil && len(defContent) >= extractor.MinContentLength {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
@@ -285,7 +315,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 		log.Printf("[fetcher] Defuddle 失败，降级到 Jina: %v", defErr)
 	}
 
-	// 6. Jina
+	// 7. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
 	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
@@ -296,7 +326,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 		log.Printf("[fetcher] Jina 内容过少(%d字符)，降级到 Brave Search", len(jinaContent))
 	}
 
-	// 7. Brave Search 兜底（用目标 URL 作为搜索词）
+	// 8. Brave Search 兜底（用目标 URL 作为搜索词）
 	if wf.bravesearch != nil {
 		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
 		if brErr == nil {
@@ -317,9 +347,20 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		return md, "stealth", sel, metadata, nil
 	}
 
-	log.Printf("[fetcher] Stealth 失败，降级到 WebPageSnap: %v", browserErr)
+	log.Printf("[fetcher] Stealth 失败，降级到 Firecrawl: %v", browserErr)
 
-	// 2. WebPageSnap
+	// 2. Firecrawl
+	if wf.firecrawl != nil {
+		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
+		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+			return fcContent, "firecrawl", fcSel, fcMeta, nil
+		}
+		if fcErr != nil {
+			log.Printf("[fetcher] Firecrawl 失败，降级到 WebPageSnap: %v", fcErr)
+		}
+	}
+
+	// 3. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
 	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
@@ -328,7 +369,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] WebPageSnap 失败，降级到 markdown.new: %v", snapErr)
 	}
 
-	// 3. markdown.new
+	// 4. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
 	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
@@ -337,14 +378,14 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] markdown.new 失败，降级到 Defuddle: %v", mnErr)
 	}
 
-	// 4. Defuddle
+	// 5. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
 	if defErr == nil {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
 		return defContent, "defuddle", defSel, metadata, nil
 	}
 
-	// 5. Jina
+	// 6. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
 	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
@@ -353,7 +394,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] Jina 失败，降级到 Brave Search: %v", jinaErr)
 	}
 
-	// 6. Brave Search 兜底
+	// 7. Brave Search 兜底
 	if wf.bravesearch != nil {
 		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
 		if brErr == nil {
@@ -362,7 +403,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] Brave Search 失败: %v", brErr)
 	}
 
-	return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: browser=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", browserErr, snapErr, mnErr, defErr, jinaErr)
+	return "", "", "", types.WebMetadata{}, fmt.Errorf("all methods failed: browser=%v, firecrawl=%v, webpagesnap=%v, markdownnew=%v, defuddle=%v, jina=%v", browserErr, "skipped", snapErr, mnErr, defErr, jinaErr)
 }
 
 // fetchTwitterMode FxTwitter → Browser → WebPageSnap → markdown.new → Defuddle → Jina → Brave Search
@@ -386,13 +427,26 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 			return brMd, "stealth", brSel, metadata, nil
 		}
 		if brErr != nil {
-			log.Printf("[fetcher] Browser 失败，降级到 WebPageSnap: %v", brErr)
+			log.Printf("[fetcher] Browser 失败，降级到 Firecrawl: %v", brErr)
 		} else {
-			log.Printf("[fetcher] Browser 内容过少(%d字符)，降级到 WebPageSnap", len(brMd))
+			log.Printf("[fetcher] Browser 内容过少(%d字符)，降级到 Firecrawl", len(brMd))
 		}
 	}
 
-	// 3. WebPageSnap
+	// 3. Firecrawl（stealth 代理，绕 Cloudflare）
+	if wf.firecrawl != nil {
+		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
+		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+			return fcContent, "firecrawl", fcSel, fcMeta, nil
+		}
+		if fcErr != nil {
+			log.Printf("[fetcher] Firecrawl 失败，降级到 WebPageSnap: %v", fcErr)
+		} else {
+			log.Printf("[fetcher] Firecrawl 内容过少(%d字符)，降级到 WebPageSnap", len(fcContent))
+		}
+	}
+
+	// 4. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
 	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
@@ -401,7 +455,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] WebPageSnap 失败，降级到 markdown.new: %v", snapErr)
 	}
 
-	// 4. markdown.new
+	// 5. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
 	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
@@ -410,7 +464,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] markdown.new 失败，降级到 Defuddle: %v", mnErr)
 	}
 
-	// 5. Defuddle
+	// 6. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
 	if defErr == nil && len(defContent) >= extractor.MinContentLength {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
@@ -420,7 +474,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] Defuddle 失败，降级到 Jina: %v", defErr)
 	}
 
-	// 6. Jina
+	// 7. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
 	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
@@ -429,7 +483,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 		log.Printf("[fetcher] Jina 失败，降级到 Brave Search: %v", jinaErr)
 	}
 
-	// 7. Brave Search 兜底
+	// 8. Brave Search 兜底
 	if wf.bravesearch != nil {
 		brContent, brSel, brMeta, brErr := wf.bravesearch.Fetch(targetURL, maxChars)
 		if brErr == nil {
@@ -530,8 +584,9 @@ func (wf *WebContentFetcher) cleanExpiredMemCache() {
 	})
 	wf.memCacheMu.Lock()
 	for _, k := range expiredKeys {
-		wf.memCache.Delete(k)
-		wf.memCacheCount--
+		if _, loaded := wf.memCache.LoadAndDelete(k); loaded {
+			wf.memCacheCount--
+		}
 	}
 	// 重建 key 列表（去掉已删除的 key）
 	newKeys := make([]string, 0, int(wf.memCacheCount))

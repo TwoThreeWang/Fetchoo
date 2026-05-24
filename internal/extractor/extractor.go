@@ -18,6 +18,12 @@ const (
 )
 
 var (
+	reLazyImages  = regexp.MustCompile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
+	reMultiNewline = regexp.MustCompile(`\n{3,}`)
+	reStripTags   = regexp.MustCompile(`<[^>]+>`)
+)
+
+var (
 	wechatSelectors = []string{
 		"div#js_content",
 		"div.rich_media_content",
@@ -51,9 +57,8 @@ func NewContentExtractor() *ContentExtractor {
 
 // FixLazyImages 修复懒加载图片
 func FixLazyImages(html string) string {
-	re := regexp.MustCompile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
-	return re.ReplaceAllStringFunc(html, func(match string) string {
-		sub := re.FindStringSubmatch(match)
+	return reLazyImages.ReplaceAllStringFunc(html, func(match string) string {
+		sub := reLazyImages.FindStringSubmatch(match)
 		if len(sub) >= 3 {
 			return `<img` + sub[1] + ` src="` + sub[2] + `"` + sub[3] + `>`
 		}
@@ -66,8 +71,7 @@ func (ce *ContentExtractor) HTMLToMarkdown(htmlStr string, max int) string {
 	htmlStr = FixLazyImages(htmlStr)
 	md := htmlToMD(htmlStr)
 	// 压缩连续换行
-	re := regexp.MustCompile(`\n{3,}`)
-	md = re.ReplaceAllString(md, "\n\n")
+	md = reMultiNewline.ReplaceAllString(md, "\n\n")
 	md = strings.TrimSpace(md)
 	if max > 0 && len(md) > max {
 		return md[:max]
@@ -78,8 +82,7 @@ func (ce *ContentExtractor) HTMLToMarkdown(htmlStr string, max int) string {
 func htmlToMD(s string) string {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(s))
 	if err != nil {
-		re := regexp.MustCompile(`<[^>]+>`)
-		return re.ReplaceAllString(s, "")
+		return reStripTags.ReplaceAllString(s, "")
 	}
 	var buf bytes.Buffer
 	walkNode(&buf, doc.Selection)

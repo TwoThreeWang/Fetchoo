@@ -33,7 +33,7 @@ func SetupRouter(f *fetcher.WebContentFetcher) *gin.Engine {
 	r.Use(func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				c.JSON(http.StatusOK, types.APIResponse{
+				c.AbortWithStatusJSON(http.StatusInternalServerError, types.APIResponse{
 					Code:    500,
 					Message: recoverToString(err),
 				})
@@ -103,6 +103,11 @@ func handleBatchFetch(f *fetcher.WebContentFetcher) gin.HandlerFunc {
 		var req types.BatchFetchRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusOK, types.APIResponse{Code: 400, Message: "请求参数错误: " + err.Error()})
+			return
+		}
+
+		if len(req.URLs) > 20 {
+			c.JSON(http.StatusOK, types.APIResponse{Code: 400, Message: "最多支持 20 个 URL"})
 			return
 		}
 

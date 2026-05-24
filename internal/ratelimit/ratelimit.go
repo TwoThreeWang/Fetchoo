@@ -23,6 +23,7 @@ var domainDelays = map[string]domainDelay{
 
 const defaultMinDelay = 0.5
 const defaultMaxDelay = 1.2
+const maxDomainEntries = 10000
 
 // RateLimiter 智能速率限制
 type RateLimiter struct {
@@ -42,21 +43,19 @@ func NewRateLimiter(maxRPS float64) *RateLimiter {
 
 func (rl *RateLimiter) Wait(targetURL string) {
 	domain := utils.DomainFromURL(targetURL)
-	now := time.Now()
 
 	rl.mu.Lock()
-	defer rl.mu.Unlock()
+
+	// 计算需要等待的时间
+	now := time.Now()
+	var totalWait time.Duration
 
 	// 全局速率限制：滑动窗口
 	if len(rl.requestTimes) >= int(rl.maxRPS) {
 		oldest := rl.requestTimes[0]
 		elapsed := now.Sub(oldest)
 		if elapsed < time.Second {
-			wait := time.Second - elapsed + 10*time.Millisecond
-			rl.mu.Unlock()
-			time.Sleep(wait)
-			rl.mu.Lock()
-			now = time.Now()
+			totalWait = time.Second - elapsed + 10*time.Millisecond
 		}
 	}
 
@@ -67,21 +66,37 @@ func (rl *RateLimiter) Wait(targetURL string) {
 	}
 
 	lastReq := rl.domainLastReq[domain]
-	sinceLast := now.Sub(lastReq)
-	waitDuration := delay.min + rand.Float64()*(delay.max-delay.min)
+	sinceLast := now.Sub(lastReq) + totalWait
+	waitDuration := time.Duration((delay.min + rand.Float64()*(delay.max-delay.min)) * float64(time.Second))
 
-	if sinceLast < time.Duration(waitDuration*float64(time.Second)) {
-		actualWait := time.Duration(waitDuration*float64(time.Second)) - sinceLast
-		rl.mu.Unlock()
-		time.Sleep(actualWait)
-		now = time.Now()
-		rl.mu.Lock()
+	if sinceLast < waitDuration {
+		domainWait := waitDuration - sinceLast
+		if domainWait > totalWait {
+			totalWait = domainWait
+		}
 	}
 
-	// 记录请求时间
+	rl.mu.Unlock()
+
+	// 在锁外等待，不阻塞其他 goroutine
+	if totalWait > 0 {
+		time.Sleep(totalWait)
+	}
+
+	// 重新获取锁，记录请求时间
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now = time.Now()
+
 	if len(rl.requestTimes) >= 100 {
 		rl.requestTimes = rl.requestTimes[1:]
 	}
 	rl.requestTimes = append(rl.requestTimes, now)
 	rl.domainLastReq[domain] = now
+
+	// 防止 domainLastReq 无限增长
+	if len(rl.domainLastReq) > maxDomainEntries {
+		rl.domainLastReq = make(map[string]time.Time)
+	}
 }

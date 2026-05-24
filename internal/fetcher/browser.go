@@ -221,7 +221,9 @@ func (sb *StealthBrowser) Fetch(targetURL string, maxChars int) (string, string,
 
 	// 等待网络空闲一段时间，让 JS 渲染完成
 	_ = page.WaitDOMStable(500*time.Millisecond, 0.05)
-	page.MustWaitIdle()
+	if err := page.WaitIdle(5 * time.Second); err != nil {
+		log.Printf("[browser] WaitIdle 超时，继续处理: %v", err)
+	}
 
 	// 额外固定等待，确保动态内容渲染
 	time.Sleep(1 * time.Second)
