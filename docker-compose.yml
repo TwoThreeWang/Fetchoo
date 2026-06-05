@@ -2,7 +2,7 @@ services:
   fetchoo:
     build: .
     container_name: fetchoo
-    command: ["./server", "-port=5000", "-cache-db=/app/data/fetch_cache.db", "-log-dir=/app/logs"]
+    command: ["./server", "-port=5000", "-db=/app/data/fetchoo.db", "-log-dir=/app/logs"]
     ports:
       - "5000:5000"
     volumes:

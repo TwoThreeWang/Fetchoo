@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -22,23 +20,9 @@ type SQLiteCache struct {
 	TTLDays int
 }
 
-func NewSQLiteCache(dbPath string, ttlDays int) (*SQLiteCache, error) {
-	dir := filepath.Dir(dbPath)
-	if dir != "" && dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, err
-		}
-	}
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
-
+func NewSQLiteCache(db *sql.DB, ttlDays int) (*SQLiteCache, error) {
 	c := &SQLiteCache{DB: db, TTLDays: ttlDays}
 	if err := c.initDB(); err != nil {
-		db.Close()
 		return nil, fmt.Errorf("初始化缓存表失败: %w", err)
 	}
 	return c, nil

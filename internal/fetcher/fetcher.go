@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"regexp"
@@ -17,8 +18,8 @@ import (
 )
 
 const (
-	maxMemCacheEntries    = 500                // 内存缓存最大条目数
-	memCacheCleanInterval = 5 * time.Minute    // 内存缓存清理间隔
+	maxMemCacheEntries    = 500             // 内存缓存最大条目数
+	memCacheCleanInterval = 5 * time.Minute // 内存缓存清理间隔
 	maxRetries            = 1
 )
 
@@ -26,7 +27,7 @@ var reMultiNewline = regexp.MustCompile(`\n{3,}`)
 
 // stealthDomains 需要强制使用浏览器抓取的域名
 var stealthDomains = map[string]bool{
-	"mp.weixin.qq.com":    true,
+	"mp.weixin.qq.com":   true,
 	"zhuanlan.zhihu.com": true,
 	"juejin.cn":          true,
 	"mp.toutiao.com":     true,
@@ -38,28 +39,28 @@ type WebContentFetcher struct {
 	rateLimiter    *ratelimit.RateLimiter
 	cache          *cache.SQLiteCache
 	memCache       *sync.Map
-	memCacheCount  int32 // 内存缓存条目计数（原子操作）
-	memCacheKeys   []string // 用于 LRU 淘汰的 key 顺序
-	memCacheMu     sync.Mutex // 保护 memCacheCount 和 memCacheKeys
+	memCacheCount  int32         // 内存缓存条目计数（原子操作）
+	memCacheKeys   []string      // 用于 LRU 淘汰的 key 顺序
+	memCacheMu     sync.Mutex    // 保护 memCacheCount 和 memCacheKeys
 	stopClean      chan struct{} // 停止清理 goroutine
 
-	httpFetcher   *HTTPFetcher
-	defuddle      *DefuddleReader
-	jina          *JinaReader
-	webpagesnap   *WebPageSnapFetcher
-	markdownnew   *MarkdownNewFetcher
-	firecrawl     *FirecrawlFetcher
-	fxtwitter     *FxTwitterFetcher
-	bravesearch   *BraveSearchFetcher
-	browser       *StealthBrowser
-	useBrowser    bool
+	httpFetcher *HTTPFetcher
+	defuddle    *DefuddleReader
+	jina        *JinaReader
+	webpagesnap *WebPageSnapFetcher
+	markdownnew *MarkdownNewFetcher
+	firecrawl   *FirecrawlFetcher
+	fxtwitter   *FxTwitterFetcher
+	bravesearch *BraveSearchFetcher
+	browser     *StealthBrowser
+	useBrowser  bool
 }
 
 // NewWebContentFetcher 创建 Fetcher 实例
-func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveAPIKey string, firecrawlAPIKey string) (*WebContentFetcher, error) {
+func NewWebContentFetcher(db *sql.DB, useBrowser *bool, proxy string, braveAPIKey string, firecrawlAPIKey string) (*WebContentFetcher, error) {
 	hm := headers.NewHeadersManager()
 	rl := ratelimit.NewRateLimiter(5.0)
-	c, err := cache.NewSQLiteCache(cacheDB, 7)
+	c, err := cache.NewSQLiteCache(db, 7)
 	if err != nil {
 		return nil, err
 	}
@@ -70,14 +71,14 @@ func NewWebContentFetcher(cacheDB string, useBrowser *bool, proxy string, braveA
 		cache:          c,
 		memCache:       &sync.Map{},
 		stopClean:      make(chan struct{}),
-		httpFetcher:  NewHTTPFetcher(hm, rl),
-		defuddle:     NewDefuddleReader(hm, rl),
-		jina:         NewJinaReader(hm, rl),
-		webpagesnap:  NewWebPageSnapFetcher(hm, rl),
-		markdownnew:  NewMarkdownNewFetcher(hm, rl),
-		fxtwitter:    NewFxTwitterFetcher(hm, rl),
-		firecrawl:    NewFirecrawlFetcher(hm, rl, firecrawlAPIKey),
-		bravesearch:  NewBraveSearchFetcher(hm, rl, braveAPIKey),
+		httpFetcher:    NewHTTPFetcher(hm, rl),
+		defuddle:       NewDefuddleReader(hm, rl),
+		jina:           NewJinaReader(hm, rl),
+		webpagesnap:    NewWebPageSnapFetcher(hm, rl),
+		markdownnew:    NewMarkdownNewFetcher(hm, rl),
+		fxtwitter:      NewFxTwitterFetcher(hm, rl),
+		firecrawl:      NewFirecrawlFetcher(hm, rl, firecrawlAPIKey),
+		bravesearch:    NewBraveSearchFetcher(hm, rl, braveAPIKey),
 	}
 
 	// 决定是否启用浏览器
@@ -145,7 +146,7 @@ func (wf *WebContentFetcher) Fetch(targetURL string, maxChars int, forceStealth,
 				return types.FetchResult{
 					URL: targetURL, Title: cr.meta.Title, Content: cr.content,
 					Metadata: cr.meta, Mode: "cached",
-					FetchTime: time.Since(startTime).Seconds(),
+					FetchTime:     time.Since(startTime).Seconds(),
 					ContentLength: len(cr.content), Success: true,
 				}
 			}
@@ -172,7 +173,7 @@ func (wf *WebContentFetcher) Fetch(targetURL string, maxChars int, forceStealth,
 			return types.FetchResult{
 				URL: targetURL, Title: meta.Title, Content: content,
 				Metadata: meta, Mode: "cached",
-				FetchTime: time.Since(startTime).Seconds(),
+				FetchTime:     time.Since(startTime).Seconds(),
 				ContentLength: len(content), Success: true,
 			}
 		}
@@ -554,7 +555,6 @@ func (wf *WebContentFetcher) Close() {
 		wf.browser.Close()
 	}
 	wf.cache.CleanupExpired()
-	wf.cache.Close()
 }
 
 // memCacheCleaner 定期清理过期的内存缓存条目

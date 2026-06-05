@@ -74,7 +74,7 @@ go run ./cmd/server -port=5000
 
 # 命令行参数
 -port=5000                  服务端口（默认 5000）
--cache-db=./data/fetch_cache.db      缓存数据库路径（默认 ./data/fetch_cache.db）
+-db=./data/fetchoo.db      数据库路径（缓存和调用统计共用，默认 ./data/fetchoo.db）
 -log-dir=./logs             日志目录（默认 ./logs）
 -browser                    强制启用浏览器模式
 -no-browser                 禁用浏览器模式

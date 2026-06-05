@@ -2,10 +2,13 @@ package server
 
 import (
 	_ "embed"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"web_fetcher/internal/apicall"
 	"web_fetcher/internal/fetcher"
 	"web_fetcher/internal/types"
 )
@@ -14,7 +17,7 @@ import (
 var landingPageHTML string
 
 // SetupRouter 配置路由
-func SetupRouter(f *fetcher.WebContentFetcher) *gin.Engine {
+func SetupRouter(f *fetcher.WebContentFetcher, store *apicall.Store, limiter *apicall.RateLimiter) *gin.Engine {
 	r := gin.Default()
 
 	// CORS 中间件
@@ -28,6 +31,9 @@ func SetupRouter(f *fetcher.WebContentFetcher) *gin.Engine {
 		}
 		c.Next()
 	})
+
+	// 限速和计数中间件
+	r.Use(apicall.Middleware(limiter, store))
 
 	// 全局异常处理
 	r.Use(func(c *gin.Context) {
@@ -49,16 +55,25 @@ func SetupRouter(f *fetcher.WebContentFetcher) *gin.Engine {
 	}
 
 	// 首页落地页
-	r.GET("/", handleLandingPage())
+	r.GET("/", handleLandingPage(store))
 
 	return r
 }
 
 // handleLandingPage 返回首页落地页 HTML
-func handleLandingPage() gin.HandlerFunc {
+func handleLandingPage(store *apicall.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, landingPageHTML)
+		today := "0"
+		total := "0"
+		if store != nil {
+			today = fmt.Sprintf("%d", store.GetTodayCount())
+			total = fmt.Sprintf("%d", store.GetTotalCount())
+		}
+		html := landingPageHTML
+		html = strings.Replace(html, "{{TODAY_CALLS}}", today, 1)
+		html = strings.Replace(html, "{{TOTAL_CALLS}}", total, 1)
+		c.String(http.StatusOK, html)
 	}
 }
 
