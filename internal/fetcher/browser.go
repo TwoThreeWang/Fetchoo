@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -62,6 +64,19 @@ func findChromiumBin() string {
 	return ""
 }
 
+var chromeMajorRE = regexp.MustCompile(`Chrome/(\d+)`)
+
+func extractChromeMajor(userAgent string) string {
+	matches := chromeMajorRE.FindStringSubmatch(userAgent)
+	if len(matches) < 2 {
+		return "146"
+	}
+	if _, err := strconv.Atoi(matches[1]); err != nil {
+		return "146"
+	}
+	return matches[1]
+}
+
 // CheckChromiumAvailable 检测 Chromium 是否可用
 func CheckChromiumAvailable() bool {
 	if bin := findChromiumBin(); bin != "" {
@@ -110,6 +125,9 @@ func (sb *StealthBrowser) ensureBrowser() error {
 
 // startBrowser 实际启动 Chromium
 func (sb *StealthBrowser) startBrowser() error {
+	// 启动时获取一次 profile（整个会话固定，避免同进程指纹不一致）
+	profile := sb.headersManager.GetProfile()
+
 	l := launcher.New().
 		Headless(true).
 		NoSandbox(true).
@@ -136,7 +154,7 @@ func (sb *StealthBrowser) startBrowser() error {
 		Set("safebrowsing-disable-auto-update").
 		Set("password-store", "basic").
 		Set("use-mock-keychain").
-		Set("lang", "zh-CN,zh,en").
+		Set("lang", profile.Language).
 		UserDataDir(filepath.Join(os.TempDir(), "go_web_fetcher_rod"))
 
 	if bin := findChromiumBin(); bin != "" {
@@ -183,14 +201,41 @@ func (sb *StealthBrowser) Fetch(targetURL string, maxChars int) (string, string,
 	// 30 秒超时
 	page = page.Timeout(30 * time.Second)
 
-	// 设置 UA 及额外请求头
+	// 注入额外反检测脚本（在页面加载前执行）
+	profile := sb.headersManager.GetProfile()
+	if err := injectStealthScript(page, profile); err != nil {
+		log.Printf("[browser] 注入反检测脚本失败: %v", err)
+	}
+
+	// 设置 UA 及额外请求头（使用 CDP 原生设置 platform 和 userAgentData）
 	hdrs := sb.headersManager.GetHeaders(targetURL)
 	ua := hdrs["User-Agent"]
 	if ua != "" {
-		if err := page.SetUserAgent(&proto.NetworkSetUserAgentOverride{
+		chromeMajor := extractChromeMajor(ua)
+		uaOverride := &proto.NetworkSetUserAgentOverride{
 			UserAgent:      ua,
 			AcceptLanguage: hdrs["Accept-Language"],
-		}); err != nil {
+			Platform:       profile.Platform,
+			UserAgentMetadata: &proto.EmulationUserAgentMetadata{
+				Brands: []*proto.EmulationUserAgentBrandVersion{
+					{Brand: "Not A Brand", Version: "24"},
+					{Brand: "Chromium", Version: chromeMajor},
+					{Brand: "Google Chrome", Version: chromeMajor},
+				},
+				FullVersionList: []*proto.EmulationUserAgentBrandVersion{
+					{Brand: "Not A Brand", Version: "24.0.0.0"},
+					{Brand: "Chromium", Version: chromeMajor + ".0.0.0"},
+					{Brand: "Google Chrome", Version: chromeMajor + ".0.0.0"},
+				},
+				Platform:        profile.UADataPlatform,
+				PlatformVersion: profile.UADataPlatformVer,
+				Architecture:    "x86",
+				Model:           "",
+				Mobile:          false,
+				Bitness:         "64",
+			},
+		}
+		if err := page.SetUserAgent(uaOverride); err != nil {
 			log.Printf("[browser] 设置 UA 失败: %v", err)
 		}
 	}
