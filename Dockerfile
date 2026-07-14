@@ -4,13 +4,22 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# 先复制依赖文件，利用 Docker 层缓存
+# 步骤 1: 只复制依赖文件，利用 Docker 层缓存（改动极少）
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
-# 复制源码并用缓存编译
+# 步骤 2: 预热构建缓存，加速后续编译
+# 这一步会提前编译所有依赖，利用 Docker 的持久化缓存
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build std
+
+# 步骤 3: 复制源码（改动频繁，但之前的缓存已预热）
 COPY . .
+
+# 步骤 4: 编译应用（完全相同的编译命令，利用预热后的缓存）
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
