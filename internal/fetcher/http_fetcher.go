@@ -16,7 +16,7 @@ import (
 	"web_fetcher/internal/utils"
 )
 
-// HTTPFetcher HTTP 爬虫 — 返回 (markdown, selector, rawHTML)
+// HTTPFetcher HTTP 爬虫 — 返回 (markdown, selector, rawHTML, contentType, error)
 type HTTPFetcher struct {
 	headersManager *headers.HeadersManager
 	rateLimiter    *ratelimit.RateLimiter
@@ -46,14 +46,14 @@ func NewHTTPFetcher(hm *headers.HeadersManager, rl *ratelimit.RateLimiter) *HTTP
 	}
 }
 
-// Fetch 快速 HTTP 爬取，返回 (markdown, selector, rawHTML, error)
-func (hf *HTTPFetcher) Fetch(targetURL string, maxChars int) (string, string, string, error) {
+// Fetch 快速 HTTP 爬取，返回 (markdown, selector, rawHTML, contentType, error)
+func (hf *HTTPFetcher) Fetch(targetURL string, maxChars int) (string, string, string, string, error) {
 	hf.rateLimiter.Wait(targetURL)
 	h := hf.headersManager.GetHeaders(targetURL)
 
 	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 	for k, v := range h {
 		req.Header.Set(k, v)
@@ -61,14 +61,17 @@ func (hf *HTTPFetcher) Fetch(targetURL string, maxChars int) (string, string, st
 
 	resp, err := hf.client.Do(req)
 	if err != nil {
-		return "", "", "", fmt.Errorf("请求失败: %w", err)
+		return "", "", "", "", fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		_, _ = io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 最多读 1MB 后丢弃
-		return "", "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
+		return "", "", "", "", fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
+
+	// 获取 Content-Type
+	contentType := resp.Header.Get("Content-Type")
 
 	var reader io.Reader = resp.Body
 
@@ -88,7 +91,7 @@ func (hf *HTTPFetcher) Fetch(targetURL string, maxChars int) (string, string, st
 
 	bodyBytes, readErr := io.ReadAll(io.LimitReader(reader, 10<<20)) // 最多 10MB
 	if readErr != nil {
-		return "", "", "", fmt.Errorf("读取响应失败: %w", readErr)
+		return "", "", "", "", fmt.Errorf("读取响应失败: %w", readErr)
 	}
 
 	htmlStr := string(bodyBytes)
@@ -100,7 +103,7 @@ func (hf *HTTPFetcher) Fetch(targetURL string, maxChars int) (string, string, st
 	md, selector := hf.extractor.Extract(htmlStr, targetURL)
 	log.Printf("[http] ✓ %s | %s | %d chars", utils.Truncate(targetURL, 50), selector, len(md))
 
-	return md, selector, htmlStr, nil
+	return md, selector, htmlStr, contentType, nil
 }
 
 // isValidUTF8 检测字符串是否为有效 UTF-8
