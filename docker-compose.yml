@@ -1,4 +1,20 @@
 services:
+  fetchoo-warp:
+    image: caomingjun/warp:latest
+    container_name: fetchoo-warp
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    device_cgroup_rules:
+      - 'c 10:200 rwm'
+    volumes:
+      - ./warp-data:/var/lib/cloudflare-warp # 固化账号，防止重复注册触发风控
+    environment:
+      - WARP_SLEEP=2 # 容器启动时等待 WARP 守护进程初始化的时间（秒），低配 VPS 可以适当调大到 5
+  
   fetchoo:
     build: .
     container_name: fetchoo
@@ -12,7 +28,12 @@ services:
       - .env
     environment:
       - TZ=Asia/Shanghai
+      - HTTP_PROXY=http://fetchoo-warp:1080
+      - HTTPS_PROXY=http://fetchoo-warp:1080
+      - ALL_PROXY=socks5://fetchoo-warp:1080
     restart: unless-stopped
+    depends_on:
+      - fetchoo-warp
     logging:
       driver: json-file
       options:
