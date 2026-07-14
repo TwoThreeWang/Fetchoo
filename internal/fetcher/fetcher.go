@@ -246,21 +246,21 @@ func (wf *WebContentFetcher) doFetch(targetURL string, maxChars int, forceStealt
 // fetchNormalMode HTTP → Browser → WebPageSnap → markdown.new → Defuddle → Jina
 func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (string, string, string, types.WebMetadata, error) {
 	// 1. HTTP（最快、不费配额），失败直接降级不重试
-	md, sel, htmlStr, httpErr := wf.httpFetcher.Fetch(targetURL, maxChars)
-	if httpErr == nil && len(md) >= extractor.MinContentLength {
+	md, sel, htmlStr, contentType, httpErr := wf.httpFetcher.Fetch(targetURL, maxChars)
+	if httpErr == nil && extractor.IsValidContent(md, contentType) {
 		metadata := extractor.ExtractMetadata(htmlStr, targetURL)
 		return md, "http", sel, metadata, nil
 	}
 	if httpErr != nil {
 		log.Printf("[fetcher] HTTP 失败，降级到 Browser: %v", httpErr)
 	} else {
-		log.Printf("[fetcher] HTTP 内容过少(%d字符)，降级到 Browser", len(md))
+		log.Printf("[fetcher] HTTP 内容过少或无效(%d字符, type=%s)，降级到 Browser", len(md), contentType)
 	}
 
 	// 2. Browser（JS 渲染）
 	if wf.browser != nil {
 		brMd, brSel, brHTML, brErr := wf.withRetryBrowser(targetURL, maxChars)
-		if brErr == nil && len(brMd) >= extractor.MinContentLength {
+		if brErr == nil && extractor.IsValidContent(brMd, "text/html") {
 			metadata := extractor.ExtractMetadata(brHTML, targetURL)
 			return brMd, "stealth", brSel, metadata, nil
 		}
@@ -274,7 +274,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 	// 3. Firecrawl（stealth 代理，绕 Cloudflare）
 	if wf.firecrawl != nil {
 		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
-		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+		if fcErr == nil && extractor.IsValidContent(fcContent, "text/html") {
 			return fcContent, "firecrawl", fcSel, fcMeta, nil
 		}
 		if fcErr != nil {
@@ -286,7 +286,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 
 	// 4. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
-	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
+	if snapErr == nil && extractor.IsValidContent(snapContent, "text/html") {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
 	}
 	if snapErr != nil {
@@ -297,7 +297,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 
 	// 5. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
-	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
+	if mnErr == nil && extractor.IsValidContent(mnContent, "text/html") {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
 	}
 	if mnErr != nil {
@@ -308,7 +308,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 
 	// 6. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
-	if defErr == nil && len(defContent) >= extractor.MinContentLength {
+	if defErr == nil && extractor.IsValidContent(defContent, "text/html") {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
 		return defContent, "defuddle", defSel, metadata, nil
 	}
@@ -318,7 +318,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 
 	// 7. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+	if jinaErr == nil && extractor.IsValidContent(jinaContent, "text/html") {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
 	if jinaErr != nil {
@@ -343,7 +343,7 @@ func (wf *WebContentFetcher) fetchNormalMode(targetURL string, maxChars int) (st
 func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (string, string, string, types.WebMetadata, error) {
 	// 1. 浏览器抓取
 	md, sel, htmlStr, browserErr := wf.withRetryBrowser(targetURL, maxChars)
-	if browserErr == nil {
+	if browserErr == nil && extractor.IsValidContent(md, "text/html") {
 		metadata := extractor.ExtractMetadata(htmlStr, targetURL)
 		return md, "stealth", sel, metadata, nil
 	}
@@ -353,7 +353,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 	// 2. Firecrawl
 	if wf.firecrawl != nil {
 		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
-		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+		if fcErr == nil && extractor.IsValidContent(fcContent, "text/html") {
 			return fcContent, "firecrawl", fcSel, fcMeta, nil
 		}
 		if fcErr != nil {
@@ -363,7 +363,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 
 	// 3. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
-	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
+	if snapErr == nil && extractor.IsValidContent(snapContent, "text/html") {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
 	}
 	if snapErr != nil {
@@ -372,7 +372,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 
 	// 4. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
-	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
+	if mnErr == nil && extractor.IsValidContent(mnContent, "text/html") {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
 	}
 	if mnErr != nil {
@@ -381,14 +381,14 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 
 	// 5. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
-	if defErr == nil {
+	if defErr == nil && extractor.IsValidContent(defContent, "text/html") {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
 		return defContent, "defuddle", defSel, metadata, nil
 	}
 
 	// 6. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+	if jinaErr == nil && extractor.IsValidContent(jinaContent, "text/html") {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
 	if jinaErr != nil {
@@ -411,7 +411,7 @@ func (wf *WebContentFetcher) fetchStealthMode(targetURL string, maxChars int) (s
 func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (string, string, string, types.WebMetadata, error) {
 	// 1. FxTwitter（Twitter 专用 API，最快最准）
 	fxContent, fxSel, fxMeta, fxErr := wf.fxtwitter.Fetch(targetURL, maxChars)
-	if fxErr == nil && len(fxContent) >= extractor.MinContentLength {
+	if fxErr == nil && extractor.IsValidContent(fxContent, "application/json") {
 		return fxContent, "fxtwitter", fxSel, fxMeta, nil
 	}
 	if fxErr != nil {
@@ -423,7 +423,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 	// 2. Browser（JS 渲染）
 	if wf.browser != nil {
 		brMd, brSel, brHTML, brErr := wf.withRetryBrowser(targetURL, maxChars)
-		if brErr == nil && len(brMd) >= extractor.MinContentLength {
+		if brErr == nil && extractor.IsValidContent(brMd, "text/html") {
 			metadata := extractor.ExtractMetadata(brHTML, targetURL)
 			return brMd, "stealth", brSel, metadata, nil
 		}
@@ -437,7 +437,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 	// 3. Firecrawl（stealth 代理，绕 Cloudflare）
 	if wf.firecrawl != nil {
 		fcContent, fcSel, fcMeta, fcErr := wf.firecrawl.Fetch(targetURL, maxChars)
-		if fcErr == nil && len(fcContent) >= extractor.MinContentLength {
+		if fcErr == nil && extractor.IsValidContent(fcContent, "text/html") {
 			return fcContent, "firecrawl", fcSel, fcMeta, nil
 		}
 		if fcErr != nil {
@@ -449,7 +449,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 
 	// 4. WebPageSnap
 	snapContent, snapSel, snapMeta, snapErr := wf.webpagesnap.Fetch(targetURL, maxChars)
-	if snapErr == nil && len(snapContent) >= extractor.MinContentLength {
+	if snapErr == nil && extractor.IsValidContent(snapContent, "text/html") {
 		return snapContent, "webpagesnap", snapSel, snapMeta, nil
 	}
 	if snapErr != nil {
@@ -458,7 +458,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 
 	// 5. markdown.new
 	mnContent, mnSel, mnMeta, mnErr := wf.markdownnew.Fetch(targetURL, maxChars)
-	if mnErr == nil && len(mnContent) >= extractor.MinContentLength {
+	if mnErr == nil && extractor.IsValidContent(mnContent, "text/html") {
 		return mnContent, "markdown-new", mnSel, mnMeta, nil
 	}
 	if mnErr != nil {
@@ -467,7 +467,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 
 	// 6. Defuddle
 	defContent, defSel, defFM, defErr := wf.defuddle.Fetch(targetURL)
-	if defErr == nil && len(defContent) >= extractor.MinContentLength {
+	if defErr == nil && extractor.IsValidContent(defContent, "text/html") {
 		metadata := wf.buildMetadataFromFrontmatter(defFM, targetURL)
 		return defContent, "defuddle", defSel, metadata, nil
 	}
@@ -477,7 +477,7 @@ func (wf *WebContentFetcher) fetchTwitterMode(targetURL string, maxChars int) (s
 
 	// 7. Jina
 	jinaContent, jinaSel, jinaErr := wf.jina.Fetch(targetURL)
-	if jinaErr == nil && len(jinaContent) >= extractor.MinContentLength {
+	if jinaErr == nil && extractor.IsValidContent(jinaContent, "text/html") {
 		return jinaContent, "jina", jinaSel, types.WebMetadata{URL: targetURL}, nil
 	}
 	if jinaErr != nil {
