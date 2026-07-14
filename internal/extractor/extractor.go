@@ -18,9 +18,9 @@ const (
 )
 
 var (
-	reLazyImages  = regexp.MustCompile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
-	reMultiNewline = regexp.MustCompile(`\n{3,}`)
-	reStripTags   = regexp.MustCompile(`<[^>]+>`)
+	reLazyImages  = regexp.Compile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
+	reMultiNewline = regexp.Compile(`\n{3,}`)
+	reStripTags   = regexp.Compile(`<[^>]+>`)
 )
 
 var (
@@ -53,6 +53,43 @@ type ContentExtractor struct{}
 
 func NewContentExtractor() *ContentExtractor {
 	return &ContentExtractor{}
+}
+
+// IsValidContent 根据内容类型判断内容是否有效
+// contentType: HTTP Content-Type 头值（可为空）
+// content: 实际内容
+func IsValidContent(content string, contentType string) bool {
+	// 如果没有 Content-Type，按通用规则判断
+	if contentType == "" {
+		return len(strings.TrimSpace(content)) >= MinContentLength
+	}
+
+	contentType = strings.ToLower(contentType)
+
+	// JSON / XML 类型：只要非空即可
+	if strings.Contains(contentType, "application/json") ||
+		strings.Contains(contentType, "application/xml") ||
+		strings.Contains(contentType, "text/xml") {
+		return len(strings.TrimSpace(content)) > 0
+	}
+
+	// 纯文本类型：宽松一些，10 字符以上
+	if strings.Contains(contentType, "text/plain") ||
+		strings.Contains(contentType, "text/csv") {
+		return len(strings.TrimSpace(content)) >= 10
+	}
+
+	// 二进制/媒体类型（图片、视频、PDF 等）：不需要字符检查
+	if strings.Contains(contentType, "image/") ||
+		strings.Contains(contentType, "video/") ||
+		strings.Contains(contentType, "audio/") ||
+		strings.Contains(contentType, "application/pdf") ||
+		strings.Contains(contentType, "application/octet-stream") {
+		return len(content) > 0
+	}
+
+	// 默认 HTML/其他：需要 200 字符
+	return len(content) >= MinContentLength
 }
 
 // FixLazyImages 修复懒加载图片
