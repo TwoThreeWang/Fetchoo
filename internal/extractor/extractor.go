@@ -18,9 +18,9 @@ const (
 )
 
 var (
-	reLazyImages  = regexp.Compile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
-	reMultiNewline = regexp.Compile(`\n{3,}`)
-	reStripTags   = regexp.Compile(`<[^>]+>`)
+	reLazyImages  = regexp.MustCompile(`<img([^>]*?)\sdata-src="([^"]+)"([^>]*?)>`)
+	reMultiNewline = regexp.MustCompile(`\n{3,}`)
+	reStripTags   = regexp.MustCompile(`<[^>]+>`)
 )
 
 var (
