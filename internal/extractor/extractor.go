@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	MinContentLength = 200
+	MinContentLength = 100
 	maxChars         = 30000
 )
 
@@ -73,10 +73,10 @@ func IsValidContent(content string, contentType string) bool {
 		return len(strings.TrimSpace(content)) > 0
 	}
 
-	// 纯文本类型：宽松一些，10 字符以上
+	// 纯文本类型：宽松一些，3 字符以上
 	if strings.Contains(contentType, "text/plain") ||
 		strings.Contains(contentType, "text/csv") {
-		return len(strings.TrimSpace(content)) >= 10
+		return len(strings.TrimSpace(content)) >= 3
 	}
 
 	// 二进制/媒体类型（图片、视频、PDF 等）：不需要字符检查
@@ -88,7 +88,7 @@ func IsValidContent(content string, contentType string) bool {
 		return len(content) > 0
 	}
 
-	// 默认 HTML/其他：需要 200 字符
+	// 默认 HTML/其他：需要 100 字符
 	return len(content) >= MinContentLength
 }
 
